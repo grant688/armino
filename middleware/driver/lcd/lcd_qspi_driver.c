@@ -83,9 +83,9 @@ static bk_err_t bk_lcd_qspi_hardware_reset(void)
 	bk_gpio_pull_up(LCD_QSPI_RESET_PIN);
 	delay_ms(10);
 	bk_gpio_pull_down(LCD_QSPI_RESET_PIN);
-	delay_ms(10);
+	delay_ms(20);
 	bk_gpio_pull_up(LCD_QSPI_RESET_PIN);
-	delay_ms(10);
+	delay_ms(120);
 
 	return BK_OK;
 }
@@ -395,6 +395,21 @@ bk_err_t bk_lcd_qspi_backlight_init(lcd_qspi_device_t *device, uint8_t percent)
 	return BK_OK;
 }
 
+bk_err_t bk_lcd_qspi_backlight_set(lcd_qspi_device_t *device, uint8_t percent)
+{
+	bk_err_t ret = BK_OK;
+
+	if (device->backlight_set != NULL) {
+		ret = device->backlight_set(percent);
+		if (ret != BK_OK) {
+			os_printf("lcd qspi backlight set failed!\r\n");
+			return ret;
+		}
+	}
+
+	return BK_OK;
+}
+
 bk_err_t bk_lcd_qspi_backlight_deinit(lcd_qspi_device_t *device)
 {
 	bk_err_t ret = BK_OK;
@@ -480,12 +495,12 @@ bk_err_t bk_lcd_qspi_send_data(lcd_qspi_device_t *device, uint32_t *data, uint32
 	if (device->refresh_method == LCD_QSPI_REFRESH_BY_LINE) {
 		for (uint16_t i = 0; i < device->refresh_config.vsw; i++) {
 			bk_lcd_qspi_send_cmd(device->reg_write_cmd, device->refresh_config.vsync_cmd, NULL, 0);
-			delay_us(35);
+			delay_us(40);
 		}
 
 		for (uint16_t i = 0; i < device->refresh_config.hfp; i++) {
 			bk_lcd_qspi_send_cmd(device->reg_write_cmd, device->refresh_config.hsync_cmd, NULL, 0);
-			delay_us(35);
+			delay_us(40);
 		}
 
 		for (uint16_t i = 0; i < (device->ppi & 0xFFFF); i++) {
@@ -519,7 +534,7 @@ bk_err_t bk_lcd_qspi_send_data(lcd_qspi_device_t *device, uint32_t *data, uint32
 
 		for (uint16_t i = 0; i < device->refresh_config.hbp; i++) {
 			bk_lcd_qspi_send_cmd(device->reg_write_cmd, device->refresh_config.hsync_cmd, NULL, 0);
-			delay_us(30);
+			delay_us(40);
 		}
 	} else if (device->refresh_method == LCD_QSPI_REFRESH_BY_FRAME) {
 		bk_lcd_qspi_quad_write_start(&(device->pixel_write_config), 1);

@@ -25,6 +25,8 @@ extern "C" {
 
 #if (CONFIG_DUAL_CORE)
 
+#define MB_CHNL_BUFF_LEN		128
+
 typedef union
 {
 	struct

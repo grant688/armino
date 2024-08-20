@@ -545,8 +545,9 @@ void *psram_malloc( size_t xWantedSize )
 		pxLink->line = line;
 		pxLink->wantedSize = xWantedSize;
 
- 		mem_end = pvReturn + xWantedSize;
- 		mem_end_len = (pxLink->xBlockSize & ~xBlockAllocatedBit) - xHeapStructSize - xWantedSize;
+	
+		mem_end = pvReturn + (pxLink->xBlockSize & ~xBlockAllocatedBit) - xHeapStructSize  - MEM_CHECK_TAG_LEN;
+ 		mem_end_len = MEM_CHECK_TAG_LEN;
  		os_memset_word((uint32_t *)mem_end, MEM_OVERFLOW_WORD_TAG, mem_end_len);
 #endif
 	}
@@ -668,7 +669,7 @@ static inline void mem_overflow_check(BlockLink_t *pxLink)
 {
 	uint8_t *mem_end;
 
-	mem_end = (uint8_t *)pxLink + xHeapStructSize + pxLink->wantedSize;
+	mem_end = (uint8_t *)pxLink + (pxLink->xBlockSize & ~xBlockAllocatedBit) - MEM_CHECK_TAG_LEN;
 
 	if (MEM_OVERFLOW_TAG != mem_end[0]
 		|| MEM_OVERFLOW_TAG != mem_end[1]

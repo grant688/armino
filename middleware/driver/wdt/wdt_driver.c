@@ -28,6 +28,11 @@
 #include <driver/timer.h>
 #include "bk_wdt.h"
 #include "aon_pmu_driver.h"
+#if CONFIG_AON_RTC
+#include <driver/aon_rtc.h>
+#endif
+
+void rtos_time_compensate(void);
 
 typedef struct {
 	wdt_hal_t hal;
@@ -39,6 +44,13 @@ typedef struct {
 
 #define INT_WDG_FEED_PERIOD_TICK ((BK_MS_TO_TICKS(CONFIG_INT_WDT_PERIOD_MS)) >> 4)
 #define TASK_WDG_PERIOD_TICK (BK_MS_TO_TICKS(CONFIG_TASK_WDT_PERIOD_MS))
+
+#if CONFIG_AON_RTC
+#define GET_TASK_CURRENT_TICK()  (BK_MS_TO_TICKS(bk_aon_rtc_get_us()/1000))
+#else
+#define GET_TASK_CURRENT_TICK()  (bk_get_tick())
+#endif
+
 
 #define WDT_RETURN_ON_DRIVER_NOT_INIT() do {\
 		if (!s_wdt_driver_is_init) {\
@@ -177,14 +189,7 @@ bk_err_t bk_wdt_feed(void)
 #if (CONFIG_INT_WDT)
 void bk_int_wdt_feed(void)
 {
-	static uint64_t s_last_int_wdt_feed_tick = 0;
-	uint64_t current_tick = bk_get_tick();
-
-	if ((current_tick - s_last_int_wdt_feed_tick) >= s_feed_watchdog_time) {
-		bk_wdt_feed();
-		s_last_int_wdt_feed_tick = current_tick;
-		//WDT_LOGD("feed interrupt watchdog, s_feed_watchdog_time = %u ms.\n", s_feed_watchdog_time);
-	}
+	bk_wdt_feed();
 }
 
 uint32_t bk_wdt_get_feed_time()
@@ -212,13 +217,14 @@ void bk_task_wdt_stop()
 
 void bk_task_wdt_feed(void)
 {
-	s_last_task_wdt_feed_tick = bk_get_tick();
+	s_last_task_wdt_feed_tick = GET_TASK_CURRENT_TICK();
 }
 
 void bk_task_wdt_timeout_check(void)
 {
+	rtos_time_compensate();
 	if (s_last_task_wdt_feed_tick && s_task_wdt_enabled) {
-		uint64_t current_tick = bk_get_tick();
+		uint64_t current_tick = GET_TASK_CURRENT_TICK();
 		if ((current_tick - s_last_task_wdt_feed_tick) > TASK_WDG_PERIOD_TICK) {
 			if ((current_tick - s_last_task_wdt_log_tick) > TASK_WDG_PERIOD_TICK) {
 				WDT_LOGW("task watchdog triggered\r\n");

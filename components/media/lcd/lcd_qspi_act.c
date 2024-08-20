@@ -25,6 +25,9 @@
 #include <driver/psram.h>
 #include "mailbox/mailbox_channel.h"
 #include "media_evt.h"
+#include "driver/dma.h"
+#include <modules/pm.h>
+
 
 #define TAG "lcd_qspi"
 #define LOGI(...) BK_LOGI(TAG, ##__VA_ARGS__)
@@ -116,9 +119,10 @@ bk_err_t lcd_qspi_disp_close(void)
     g_lcd_qspi_act_step = LCD_QSPI_ACT_DISP_CLOSE;
     rtos_unlock_mutex(&g_lcd_qspi_mutex);
 
+    _lcd_qspi_display_deinit();
+
     g_lcd_qspi_open_flag = 0;
 
-//    _lcd_qspi_display_deinit();
     LOGI("[%s] close success\r\n", __FUNCTION__);
 
     return BK_OK;
@@ -210,6 +214,8 @@ static uint8_t g_lcd_qspi_open_flag = 0;
 static lcd_qspi_device_t *device_config = NULL;
 static beken_semaphore_t lcd_qspi_disp_sem = NULL;
 static beken_mutex_t g_lcd_qspi_mutex_master;
+uint8_t dma_init = 0;
+uint8_t psram_dma;
 
 static void lcd_qspi_master_mailbox_rx_isr(void *param, mb_chnl_cmd_t *cmd_buf)
 {
@@ -257,6 +263,8 @@ bk_err_t bk_lcd_qspi_open(char *lcd_name, uint32_t *frame_buffer_addr, uint32_t 
         mb_chnl_ctrl(MB_CHNL_LCD_QSPI, MB_CHNL_SET_TX_ISR, lcd_qspi_master_mailbox_tx_isr);
         mb_chnl_ctrl(MB_CHNL_LCD_QSPI, MB_CHNL_SET_TX_CMPL_ISR, lcd_qspi_master_mailbox_tx_cmpl_isr);
 
+        bk_pm_module_vote_power_ctrl(PM_POWER_SUB_MODULE_NAME_VIDP_LCD, PM_POWER_MODULE_STATE_ON);
+
         device_config = bk_lcd_qspi_get_device_by_name(lcd_name);
         if(!device_config)
         {
@@ -294,6 +302,18 @@ bk_err_t bk_lcd_qspi_open(char *lcd_name, uint32_t *frame_buffer_addr, uint32_t 
             bk_lcd_qspi_backlight_init(device_config, 100);
             g_lcd_qspi_open_flag = 1;
             LOGI("[%s] open lcd success\r\n", __FUNCTION__);
+        }
+    }
+
+    if (dma_init == 0)
+    {
+        psram_dma = bk_dma_alloc(DMA_DEV_PSRAM_VIDEO);
+        if ((psram_dma < DMA_ID_0) || (psram_dma >= DMA_ID_MAX))
+        {
+            LOGE("malloc psram_dma fail \r\n");
+            ret = BK_FAIL;
+        }else{
+            dma_init = 1;
         }
     }
 
@@ -376,12 +396,27 @@ bk_err_t bk_lcd_qspi_close(void)
 
 		rtos_unlock_mutex(&g_lcd_qspi_mutex_master);
 
+        bk_pm_module_vote_power_ctrl(PM_POWER_SUB_MODULE_NAME_VIDP_LCD, PM_POWER_MODULE_STATE_OFF);
+
         if(ret == BK_OK)
         {
             rtos_deinit_mutex(&g_lcd_qspi_mutex_master);
             rtos_deinit_semaphore(&lcd_qspi_disp_sem);
         }
     }while(0);
+
+    if (dma_init == 1)
+    {
+        extern void dma2d_memcpy_psram_wait_last_transform_is_finish(void);
+        dma2d_memcpy_psram_wait_last_transform_is_finish();
+        bk_dma_free(DMA_DEV_PSRAM_VIDEO, psram_dma);
+        if(ret)
+        {
+            LOGE("psram_dma free failed: %d\n", ret);
+        }else{
+            dma_init = 0;
+        }
+    }
 
     return ret;
 }

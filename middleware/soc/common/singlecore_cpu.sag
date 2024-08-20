@@ -15,6 +15,11 @@ DEFINE CPU0_FLASH_SIZE   0x220000
 
 CPU0_LOAD1 CPU0_FLASH_START CPU0_FLASH_SIZE
 {
+   	FLASH_START +0 ALIGN 32
+	{
+		LOADADDR NEXT   _flash_start
+	}
+
     FLASH1 +0 
 	{
 		* KEEP (.nds_vector)
@@ -121,4 +126,8 @@ CPU0_LOAD1 CPU0_FLASH_START CPU0_FLASH_SIZE
 		ADDR  _sram_end
 	}
 
+	FLASH_END +0 ALIGN 32
+	{
+		LOADADDR _flash_end
+	}
 }

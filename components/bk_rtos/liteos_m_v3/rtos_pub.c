@@ -1283,5 +1283,8 @@ size_t rtos_get_psram_minimum_free_heap_size(void)
 	return 0x0;
 }
 
+void rtos_time_compensate(void) {
+
+}
 // eof
 

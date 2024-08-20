@@ -185,7 +185,20 @@ void lv_img_buf_set_px_alpha(lv_img_dsc_t * dsc, lv_coord_t x, lv_coord_t y, lv_
     if(dsc->header.cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
         uint8_t px_size          = lv_img_cf_get_px_size(dsc->header.cf) >> 3;
         uint32_t px              = dsc->header.w * y * px_size + x * px_size;
+        #if (CONFIG_SOC_BK7256XX)
+        uint8_t *dest_buf = &buf_u8[px + px_size - 1];
+        
+        if(((unsigned int)(dest_buf) & 0x3) == 0)
+             *((volatile unsigned int *)dest_buf) = (dest_buf[+3] << 24) | (dest_buf[+2] << 16) | (dest_buf[+1] << 8) | opa;
+        else if(((unsigned int)(dest_buf) % 4) == 1)
+            *((volatile unsigned int *)(dest_buf - 1)) = (dest_buf[+2] << 24) | (dest_buf[+1] << 16) | opa | dest_buf[-1];
+        else if(((unsigned int)(dest_buf) % 4) == 2)
+            *((volatile unsigned int *)(dest_buf - 2)) = (dest_buf[+1] << 24) | opa | (dest_buf[-1] << 8)| dest_buf[-2];
+        else if(((unsigned int)(dest_buf) % 4) == 3)
+            *((volatile unsigned int *)(dest_buf - 3)) = opa | (dest_buf[-3] << 16) | (dest_buf[-2] << 8)| dest_buf[-3];
+        #else
         buf_u8[px + px_size - 1] = opa;
+        #endif
     }
     else if(dsc->header.cf == LV_IMG_CF_ALPHA_1BIT) {
         opa         = opa >> 7; /*opa -> [0,1]*/
@@ -244,7 +257,16 @@ void lv_img_buf_set_px_color(lv_img_dsc_t * dsc, lv_coord_t x, lv_coord_t y, lv_
     if(dsc->header.cf == LV_IMG_CF_TRUE_COLOR || dsc->header.cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
         uint8_t px_size = lv_img_cf_get_px_size(dsc->header.cf) >> 3;
         uint32_t px     = dsc->header.w * y * px_size + x * px_size;
+        #if (CONFIG_SOC_BK7256XX)
+        lv_color_t *dest_buf = (lv_color_t *)&buf_u8[px];
+        
+        if(((unsigned int)(dest_buf) & 0x3) == 0)
+             *((volatile unsigned int *)dest_buf) = (dest_buf[+1].full << 16) | c.full;
+        else
+            *((volatile unsigned int *)(dest_buf - 1)) = (c.full << 16) | dest_buf[- 1].full;
+        #else
         lv_memcpy_small(&buf_u8[px], &c, px_size);
+        #endif
     }
     else if(dsc->header.cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
         uint8_t px_size = lv_img_cf_get_px_size(dsc->header.cf) >> 3;

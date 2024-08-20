@@ -2,4 +2,14 @@ menu "TP"
 	config TP
 		bool "Enable TP"
 		default n
+		
+	config TP_MIRROR_TYPE
+		int "Set mirror in order to match lcd"
+		default 0
+		help
+			0 - x, y same lcd
+			1 - x mirror
+			2 - x,y mirror
+			3 - y mirror
+		default 0
 endmenu

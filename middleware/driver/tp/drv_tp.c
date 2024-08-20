@@ -26,6 +26,8 @@
 
 
 static tp_dev_t g_tp_dev = {0};
+static int g_tp_hor_size = 0;
+static int g_tp_ver_size = 0;
 
 /**
  * @brief tp open
@@ -50,6 +52,8 @@ int drv_tp_open(int hor_size, int ver_size)
             break;
         }
 
+        g_tp_hor_size = hor_size;
+        g_tp_ver_size = ver_size;
         tp_config_t tp_config = {0};
         uint32_t ppi = hor_size;
         ppi <<= 16;
@@ -176,8 +180,19 @@ int drv_tp_write(uint16_t x, uint16_t y, uint16_t state)
         }
 
         os_memset(point, 0, sizeof(tp_point_infor_t));
+#if (CONFIG_TP_MIRROR_TYPE == 0)
         point->m_x = x;
         point->m_y = y;
+#elif (CONFIG_TP_MIRROR_TYPE == 1)
+        point->m_x = g_tp_hor_size - 1 - x;
+        point->m_y = y;
+#elif (CONFIG_TP_MIRROR_TYPE == 2)
+        point->m_x = g_tp_hor_size - 1 - x;
+        point->m_y = g_tp_ver_size - 1 - y;
+#elif (CONFIG_TP_MIRROR_TYPE == 3)
+        point->m_x = x;
+        point->m_y = g_tp_ver_size - 1 - y;
+#endif
         point->m_state = state;
 
         rtos_lock_mutex(&g_tp_dev.m_mutex);
@@ -187,6 +202,7 @@ int drv_tp_write(uint16_t x, uint16_t y, uint16_t state)
         }
         else
         {
+            os_free(point);
             LOGW("%s, tp data queue is full!\r\n", __func__);
         }
         rtos_unlock_mutex(&g_tp_dev.m_mutex);

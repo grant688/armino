@@ -276,7 +276,7 @@ bk_err_t bk_adc_driver_init(void)
 		}
 	}
 
-	bk_int_isr_register(INT_SRC_SARADC, adc_isr, NULL);
+	//bk_int_isr_register(INT_SRC_SARADC, adc_isr, NULL);
 
 	adc_statis_init();
 	s_adc_statis = adc_statis_get_statis();
@@ -320,7 +320,7 @@ bk_err_t bk_adc_driver_deinit(void)
 
 	bk_adc_deinit(ADC_1); // Deinit ADC_1 to deinit ADC
 	adc_hal_deinit(&s_adc.hal);
-	bk_int_isr_unregister(INT_SRC_SARADC);
+	//bk_int_isr_unregister(INT_SRC_SARADC);
 
 	if (s_adc_dev.adc_mutex)
 		rtos_deinit_mutex(&s_adc_dev.adc_mutex);
@@ -348,6 +348,9 @@ bk_err_t bk_adc_init(adc_chan_t adc_chan)
 	adc_flush();
 #endif
 	adc_chan_init_common(adc_chan);
+
+	bk_int_isr_register(INT_SRC_SARADC, adc_isr, NULL);
+
 	bk_adc_set_sample_cnt(ADC_SAMPLE_CNT_DEFAULT);
 
 	return BK_OK;
@@ -355,6 +358,8 @@ bk_err_t bk_adc_init(adc_chan_t adc_chan)
 
 bk_err_t bk_adc_deinit(adc_chan_t chan)
 {
+	bk_int_isr_unregister(INT_SRC_SARADC);
+
 	ADC_RETURN_ON_NOT_INIT();
 	ADC_RETURN_ON_INVALID_CHAN(chan);
 
@@ -741,28 +746,42 @@ void saradc_config_param_init_for_temp(saradc_desc_t* adc_config)
 float saradc_calculate(UINT16 adc_val)
 {
     float practic_voltage;
-#if (CFG_SOC_NAME == SOC_BK7256)
     /* (adc_val - low) / (practic_voltage - 1Volt) = (high - low) / 1Volt */
     /* practic_voltage = (adc_val - low) / (high - low) + 1Volt */
     if(g_saradc_flag == 0x1)
     {
         practic_voltage = (float)((adc_val * 2) - saradc_val.low);
         practic_voltage = (practic_voltage / (float)(saradc_val.high - saradc_val.low)) + 1;
+        if(practic_voltage < 0)
+            practic_voltage = practic_voltage *(-1.0);
     }
     else
     {
         /* saradc 1.2V = 4096 */
-        practic_voltage = ((float)(adc_val * 2) / 4096) * 1.2 * 1000;
+        practic_voltage = ((float)(adc_val * 2) / 4096) * 1.2;
     }
-#elif ( (CFG_SOC_NAME != SOC_BK7271) && (CFG_SOC_NAME != SOC_BK7221U))
-    practic_voltage = ((adc_val - saradc_val.low) * 1.8);
-    practic_voltage = (practic_voltage / (saradc_val.high - saradc_val.low)) + 0.2;
-#else
-	 practic_voltage = (adc_val -(saradc_val.low-4096));
-	 practic_voltage = practic_voltage/(saradc_val.high  - (saradc_val.low-4096));
-	 practic_voltage = 2*practic_voltage;
-#endif
     return practic_voltage;
+}
+
+float bk_adc_data_calculate(UINT16 adc_val, UINT8 adc_chan)
+{
+    float cali_value = 0;
+
+    if(adc_chan == 0)
+    {
+        cali_value = saradc_calculate(adc_val);
+        cali_value = cali_value*5/2;
+    }
+    else if(adc_chan == 7 || adc_chan == 8 || adc_chan == 9)
+    {
+        ADC_LOGI("adc_chan %d has been used\r\n", adc_chan);
+    }
+    else
+    {
+        cali_value = saradc_calculate(adc_val);
+    }
+
+    return cali_value;
 }
 
 UINT32 saradc_set_calibrate_val(uint16_t *value, SARADC_MODE mode)

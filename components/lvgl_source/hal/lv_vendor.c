@@ -136,3 +136,13 @@ void lv_vendor_stop(void)
 
 }
 
+int lv_vendor_display_frame_cnt(void)
+{
+    if(vendor_config.sram_frame_buf_1 && vendor_config.sram_frame_buf_2)
+        return 2;
+    else if(vendor_config.sram_frame_buf_1 || vendor_config.sram_frame_buf_2)
+        return 1;
+    else
+        return 0;
+}
+

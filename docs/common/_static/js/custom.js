@@ -38,6 +38,7 @@ jQuery(function()
         buildMultiVersionSelector();
         setPageStyle();
     }
+    setFeedBackItem();
 });
 
 
@@ -273,5 +274,17 @@ function setPageWidth(styleSet)
         $("#modeIcon").attr('styleSet', 'true');
         $(".wy-nav-content").attr('style', 'max-width:none');
         localStorage.setItem('styleSet', 'true');
+    }
+}
+function setFeedBackItem()
+{
+    if ($("#doc-feedback").length > 0) {
+        const versionNum = encodeURIComponent($("#version-id").val());
+        let title = encodeURIComponent($(document).attr('title'));
+        let itemDesc = 'provide feedback about this doc';
+        if (window.location.pathname.includes('zh_CN')) {
+            itemDesc = '反馈该文档建议';
+        }
+        $("#doc-feedback").append('<a target="_blank" href="https://docs.bekencorp.com/docfeedback?title=' + title + '&versionNum=' + versionNum + '">' + itemDesc +'</a>');
     }
 }

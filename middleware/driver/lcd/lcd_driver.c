@@ -1892,6 +1892,7 @@ void dma2d_memcpy_psram(void *Psrc, void *Pdst, uint32_t xsize, uint32_t ysize, 
 }
 
 static u8 g_dma2d_use_flag = 0;
+static u8 g_dma_use_flag = 0;
 void dma2d_memcpy_psram_wait_last_transform_is_finish(void)
 {
 	if(1 == g_dma2d_use_flag)
@@ -1899,15 +1900,92 @@ void dma2d_memcpy_psram_wait_last_transform_is_finish(void)
 		while (bk_dma2d_is_transfer_busy()) {rtos_delay_milliseconds(2);}
 		g_dma2d_use_flag = 0;
 	}
+
+    if(1 == g_dma_use_flag)
+    {
+        while(g_dma_use_flag)
+        {
+            rtos_delay_milliseconds(2);
+        }
+    }
+}
+
+#include "driver/dma.h"
+#include "driver/psram.h"
+
+extern uint8_t dma_init;
+extern uint8_t psram_dma;
+uint32_t dma_total_length = 0;
+uint32_t dma_left_length = 0;
+uint8_t *dma_src_addr = NULL;
+uint8_t *dma_dst_addr = NULL;
+static bk_err_t psram_memcpy_by_chnl(void *out, const void *in, uint32_t len, dma_id_t cpy_chnls);
+
+static void psram_memcpy_finish_callback(dma_id_t id)
+{
+    if (dma_left_length == 0)
+    {
+        g_dma_use_flag = 0;
+    }
+    else
+    {
+        int len = 0, copy_len = 0;
+        len = dma_left_length > 60000 ? 60000 : dma_left_length;
+        copy_len = dma_total_length - dma_left_length;
+		dma_left_length -= len;
+        psram_memcpy_by_chnl(dma_dst_addr + copy_len, dma_src_addr + copy_len, len, psram_dma);
+    }
+}
+
+static bk_err_t psram_memcpy_by_chnl(void *out, const void *in, uint32_t len, dma_id_t cpy_chnls)
+{
+	dma_config_t dma_config = {0};
+
+	dma_config.mode = DMA_WORK_MODE_SINGLE;
+	dma_config.chan_prio = 0;
+
+	dma_config.src.dev = (DMA_DEV_PSRAM_VIDEO);
+	dma_config.src.width = DMA_DATA_WIDTH_32BITS;
+	dma_config.src.addr_inc_en = DMA_ADDR_INC_ENABLE;
+	dma_config.src.start_addr = (uint32_t)in;
+	dma_config.src.end_addr = (uint32_t)(in + len);
+
+	dma_config.dst.dev = (DMA_DEV_PSRAM_VIDEO);
+	dma_config.dst.width = DMA_DATA_WIDTH_32BITS;
+	dma_config.dst.addr_inc_en = DMA_ADDR_INC_ENABLE;
+	dma_config.dst.start_addr = (uint32_t)out;
+	dma_config.dst.end_addr = (uint32_t)(out + len);
+
+	BK_LOG_ON_ERR(bk_dma_init(cpy_chnls, &dma_config));
+	BK_LOG_ON_ERR(bk_dma_set_transfer_len(cpy_chnls, len));
+
+	BK_LOG_ON_ERR(bk_dma_register_isr(cpy_chnls, NULL, psram_memcpy_finish_callback));
+	BK_LOG_ON_ERR(bk_dma_enable_finish_interrupt(cpy_chnls));
+	BK_LOG_ON_ERR(bk_dma_start(cpy_chnls));
+
+	return BK_OK;
 }
 
 void dma2d_memcpy_psram_wait_last_transform(void *Psrc, void *Pdst, uint32_t xsize, uint32_t ysize, uint32_t src_offline, uint32_t dest_offline)
 {
 #if (CONFIG_LCD_QSPI && CONFIG_LVGL)
-	if(CONFIG_LV_COLOR_DEPTH == 16)
-		os_memcpy_word((uint32_t *)Pdst, (const uint32_t *)Psrc, xsize*ysize*2);
-	else if(CONFIG_LV_COLOR_DEPTH == 32)
-		os_memcpy_word((uint32_t *)Pdst, (const uint32_t *)Psrc, xsize*ysize*4);
+    uint32_t size_all = xsize * ysize * 2;
+    int len = 0, copy_len = 0;
+
+    dma2d_memcpy_psram_wait_last_transform_is_finish();
+    if (dma_init == 1)
+    {
+        dma_src_addr = (uint8_t *)Psrc;
+        dma_dst_addr = (uint8_t *)Pdst;
+        dma_total_length = dma_left_length = size_all;
+        len = dma_left_length > 60000 ? 60000 : dma_left_length;
+        copy_len = dma_total_length - dma_left_length;
+		dma_left_length -= len;
+        g_dma_use_flag = 1;
+        psram_memcpy_by_chnl(dma_dst_addr + copy_len, dma_src_addr + copy_len, len, psram_dma);
+    }else{
+		os_memcpy_word((uint32_t *)Pdst, (const uint32_t *)Psrc, size_all);
+	}
 #else
 
 	dma2d_config_t dma2d_config = {0};
@@ -2366,8 +2444,17 @@ static void _lcd_driver_display_frame_with_gui(void *buffer, int width, int heig
             lcd_driver_display_frame_sync(s_lcd.lvgl_frame, BK_FALSE);
             g_gui_need_to_wait = BK_TRUE;
 #else
-            lcd_driver_display_frame_sync(s_lcd.lvgl_frame, BK_TRUE);
-            g_gui_need_to_wait = BK_FALSE;
+            extern int lv_vendor_display_frame_cnt(void);
+            if(2 == lv_vendor_display_frame_cnt())
+            {
+                lcd_driver_display_frame_sync(s_lcd.lvgl_frame, BK_TRUE);
+                g_gui_need_to_wait = BK_FALSE;
+            }
+            else
+            {
+                lcd_driver_display_frame_sync(s_lcd.lvgl_frame, BK_FALSE);
+                g_gui_need_to_wait = BK_TRUE;
+            }
 #endif
         }
         else
@@ -2430,7 +2517,7 @@ bk_err_t _gui_display_send_msg(void)
 static void _gui_display_task_entry( void *arg )
 {
     int hor_size = ppi_to_pixel_x(s_lcd.config.device->ppi);
-    int ver_size = ppi_to_pixel_x(s_lcd.config.device->ppi);
+    int ver_size = ppi_to_pixel_y(s_lcd.config.device->ppi);
     gui_display_msg_t msg = {0};
 
     rtos_set_semaphore(&g_gui_run_sem);
@@ -2503,7 +2590,7 @@ static void _gui_display_task_destory(void)
 static int _gui_display_task_create(void)
 {
     int hor_size = ppi_to_pixel_x(s_lcd.config.device->ppi);
-    int ver_size = ppi_to_pixel_x(s_lcd.config.device->ppi);
+    int ver_size = ppi_to_pixel_y(s_lcd.config.device->ppi);
     bk_err_t ret = BK_FAIL;
     int lcd_size = 0;
     

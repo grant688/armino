@@ -513,6 +513,8 @@ function(armino_component_register)
     __component_check_target()
     __component_add_sources(sources)
 
+    redefine_file_macro("${sources}")
+    
     # Add component manifest and lock files to list of dependencies
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${COMPONENT_DIR}/armino_component.yml")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${COMPONENT_DIR}/dependencies.lock")
@@ -632,6 +634,239 @@ function(armino_component_register)
 
     __component_set_properties()
 endfunction()
+
+# armino_component_register_ex
+#
+# @brief Register a component(can set component name) to the build, creating component library targets etc.
+#
+# @param[in, optional] SRCS (multivalue) list of source files for the component
+# @param[in, optional] SRC_DIRS (multivalue) list of source directories to look for source files
+#                       in (.c, .cpp. .S); ignored when SRCS is specified.
+# @param[in, optional] EXCLUDE_SRCS (multivalue) used to exclude source files for the specified
+#                       SRC_DIRS
+# @param[in, optional] INCLUDE_DIRS (multivalue) public include directories for the created component library
+# @param[in, optional] PRIV_INCLUDE_DIRS (multivalue) private include directories for the created component library
+# @param[in, optional] LDFRAGMENTS (multivalue) linker script fragments for the component
+# @param[in, optional] REQUIRES (multivalue) publicly required components in terms of usage requirements
+# @param[in, optional] PRIV_REQUIRES (multivalue) privately required components in terms of usage requirements
+#                      or components only needed for functions/values defined in its project_include.cmake
+# @param[in, optional] REQUIRED_ARMINO_SOCS (multivalue) the list of ARMINO build targets that the component only supports
+# @param[in, optional] KCONFIG (single value) override the default Kconfig
+# @param[in, optional] KCONFIG_PROJBUILD (single value) override the default Kconfig
+# @param[in, optional] INTERNAL_LIB (single value)
+# @param[in, optional] CONFIG_COMPONENT_NAME (single value) set customized component name
+function(armino_component_register_ex)
+    set(options INTERNAL_LIB)
+    set(single_value KCONFIG KCONFIG_PROJBUILD CONFIG_COMPONENT_NAME)
+    set(multi_value SRCS SRC_DIRS EXCLUDE_SRCS
+                    INCLUDE_DIRS PRIV_INCLUDE_DIRS LDFRAGMENTS REQUIRES
+                    PRIV_REQUIRES REQUIRED_ARMINO_SOCS)
+    cmake_parse_arguments(_ "${options}" "${single_value}" "${multi_value}" ${ARGN})
+
+    if(NOT __armino_component_context)
+        LOGI("Called armino_component_register from a non-component directory.")
+    endif()
+
+    LOGI("[armino_component_register_ex]: customized component name is ${__CONFIG_COMPONENT_NAME}.")
+
+    __component_check_target()
+    __component_add_sources(sources)
+
+    redefine_file_macro("${sources}")
+
+    # Add component manifest and lock files to list of dependencies
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${COMPONENT_DIR}/armino_component.yml")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${COMPONENT_DIR}/dependencies.lock")
+
+    armino_build_get_property(prefix __PREFIX)
+
+
+
+    ################################################################################################
+    # Set component name begin
+    ################################################################################################
+    armino_build_get_property(component_targets __COMPONENT_TARGETS)
+
+    get_filename_component(abs_dir ${COMPONENT_DIR} ABSOLUTE)
+    get_filename_component(base_dir ${abs_dir} NAME)
+
+    set(config_component_name ${__CONFIG_COMPONENT_NAME})
+    # LOGI("[__component_add_ex]: config_component_name is ${config_component_name}.")
+    # LOGI("[__component_add_ex]: base_dir is ${base_dir}.")
+
+    armino_build_get_property(inc_prefix __INCLUDE_PREFIX)
+    armino_build_get_property(component_prefix __PREFIX)
+
+    # LOGI("[__component_add_ex]: inc_prefix is ${inc_prefix}.")
+    # LOGI("[__component_add_ex]: component_prefix is ${component_prefix}.")
+
+    # The component target has three underscores as a prefix.
+    # The corresponding component library only has two.
+    set(component_name  ${prefix}_${config_component_name})
+    set(component_alias ${prefix}::${config_component_name})
+    set(component_lib     __${component_name})
+    set(component_target ___${component_name})
+    set(component_dir      ${abs_dir})
+    set(component_base_dir ${base_dir})
+
+    # LOGI("[__component_add_ex]: component_name is ${component_name}.")
+    # LOGI("[__component_add_ex]: component_target is ${component_target}.")
+
+
+    if(NOT ${base_dir} STREQUAL ${config_component_name})
+
+        # If a component of the same name has been added before, just override the properties.
+        # As a side effect, components added later 'override' components added earlier.
+        if(NOT component_target IN_LIST component_targets)
+            if(NOT TARGET ${component_target})
+                # LOGI("[__component_add_ex]: add_library ${component_target}")
+                add_library(${component_target} STATIC IMPORTED)
+            endif()
+            armino_build_set_property(__COMPONENT_TARGETS ${component_target} APPEND)
+        else()
+            # LOGI("[__component_add_ex]: ${component_target} already registered.")
+            return()
+        endif()
+
+        # Set the basic properties of the component
+        __component_set_property(${component_target} COMPONENT_LIB ${component_lib})
+        __component_set_property(${component_target} COMPONENT_NAME ${component_name})
+        __component_set_property(${component_target} COMPONENT_DIR ${component_dir})
+        __component_set_property(${component_target} COMPONENT_ALIAS ${component_alias})
+        __component_set_property(${component_target} COMPONENT_BASE_DIR ${component_base_dir})
+
+        # LOGI("[__component_add_ex]: component_alias is ${component_alias}.")
+        __component_set_property(${component_target} __PREFIX ${prefix})
+
+        # Set Kconfig related properties on the component
+        __kconfig_component_init(${component_target})
+        # LOGI("[__component_add_ex]: ${component_target} added ok.")
+    else()
+        # LOGI("[__component_add_ex]: ${component_target} already added.")
+    endif() 
+    ################################################################################################
+    # Set component name end
+    ################################################################################################
+
+    # Create the final target for the component. This target is the target that is
+    # visible outside the build system.
+
+    armino_build_get_property(component_targets __BUILD_COMPONENT_TARGETS)
+    armino_build_get_property(component_libs __BUILD_COMPONENTS)
+    armino_build_get_property(component_aliass BUILD_COMPONENT_ALIASES)
+    armino_build_get_property(component_names BUILD_COMPONENTS)
+    armino_build_get_property(inc_prefix __INCLUDE_PREFIX)
+    armino_build_get_property(component_prefix __PREFIX)
+
+    # LOGI("[armino_component_register_ex]: component_targets is ${component_targets}.")
+    # LOGI("[armino_component_register_ex]: component_libs is ${component_libs}.")
+    # LOGI("[armino_component_register_ex]: component_aliass is ${component_aliass}.")
+    # LOGI("[armino_component_register_ex]: component_names is ${component_names}.")
+    # LOGI("[armino_component_register_ex]: inc_prefix is ${inc_prefix}.")
+    # LOGI("[armino_component_register_ex]: component_prefix is ${component_prefix}.")
+
+    set(if_inc_component_repeat)
+    set(repeat_target)
+    if(prefix STREQUAL inc_prefix)
+        # set(repeat_target ___${component_prefix}_${component_base_dir})
+        string(REPLACE "${inc_prefix}" "${component_prefix}" repeat_target "${component_alias}")
+        string(REPLACE "::" "_" repeat_target "${repeat_target}")
+        set(repeat_target ___${repeat_target})
+        if(repeat_target IN_LIST component_targets)
+            set(if_inc_component_repeat 1)
+        endif()
+    endif()
+
+    # Use generator expression so that users can append/override flags even after call to
+    # armino_build_process
+    armino_build_get_property(include_directories INCLUDE_DIRECTORIES GENERATOR_EXPRESSION)
+    armino_build_get_property(compile_options COMPILE_OPTIONS GENERATOR_EXPRESSION)
+    armino_build_get_property(c_compile_options C_COMPILE_OPTIONS GENERATOR_EXPRESSION)
+    armino_build_get_property(cxx_compile_options CXX_COMPILE_OPTIONS GENERATOR_EXPRESSION)
+    armino_build_get_property(common_reqs ___COMPONENT_REQUIRES_COMMON)
+
+    include_directories("${include_directories}")
+    add_compile_options("${compile_options}")
+    add_c_compile_options("${c_compile_options}")
+    add_cxx_compile_options("${cxx_compile_options}")
+
+    # Unfortunately add_definitions() does not support generator expressions. A new command
+    # add_compile_definition() does but is only available on CMake 3.12 or newer. This uses
+    # add_compile_options(), which can add any option as the workaround.
+    #
+    # TODO: Use add_compile_definitions() once minimum supported version is 3.12 or newer.
+    armino_build_get_property(compile_definitions COMPILE_DEFINITIONS GENERATOR_EXPRESSION)
+    add_compile_options("${compile_definitions}")
+
+    # LOGI("[armino_component_register_ex]: common_reqs is ${common_reqs}.")
+    list(REMOVE_ITEM common_reqs ${component_lib})
+    link_libraries(${common_reqs})
+
+    armino_build_get_property(config_dir CONFIG_DIR)
+
+    # The contents of 'sources' is from the __component_add_sources call
+    if(sources)
+        add_library(${component_lib} STATIC ${sources})
+        __component_set_property(${component_lib} COMPONENT_TYPE LIBRARY)
+        __component_add_include_dirs(${component_lib} "${__INCLUDE_DIRS}" PUBLIC)
+        __component_add_include_dirs(${component_lib} "${__PRIV_INCLUDE_DIRS}" PRIVATE)
+        __component_add_include_dirs(${component_lib} "${config_dir}" PUBLIC)
+        set_target_properties(${component_lib} PROPERTIES OUTPUT_NAME ${config_component_name})
+        __ldgen_add_component(${component_lib})
+    else()
+        if(if_inc_component_repeat AND repeat_target)
+            __component_get_property(repeat_lib ${repeat_target} COMPONENT_LIB)
+            __component_add_include_dirs(${repeat_lib} "${__INCLUDE_DIRS}" INTERFACE)
+            __component_add_include_dirs(${repeat_lib} "${config_dir}" INTERFACE)
+            list(REMOVE_ITEM component_targets ${component_target})
+            list(REMOVE_ITEM component_libs ${component_lib})
+            list(REMOVE_ITEM component_aliass ${component_alias})
+            list(REMOVE_ITEM component_names ${component_name})
+            armino_build_set_property(__BUILD_COMPONENT_TARGETS "${component_targets}")
+            armino_build_set_property(__BUILD_COMPONENTS "${component_libs}")
+            armino_build_set_property(BUILD_COMPONENT_ALIASES "${component_aliass}")
+            armino_build_set_property(BUILD_COMPONENTS "${component_names}")
+            armino_build_get_property(component_aliass BUILD_COMPONENT_ALIASES)
+            return()
+        else()
+            add_library(${component_lib} INTERFACE)
+            __component_set_property(${component_target} COMPONENT_TYPE CONFIG_ONLY)
+            __component_add_include_dirs(${component_lib} "${__INCLUDE_DIRS}" INTERFACE)
+            __component_add_include_dirs(${component_lib} "${config_dir}" INTERFACE)
+        endif()
+    endif()
+
+    # Alias the static/interface library created for linking to external targets.
+    # The alias is the <prefix>::<component name> name.
+    __component_get_property(component_alias ${component_target} COMPONENT_ALIAS)
+    add_library(${component_alias} ALIAS ${component_lib})
+
+    if(__LDFRAGMENTS)
+        __ldgen_add_fragment_files("${__LDFRAGMENTS}")
+    endif()
+
+
+    # LOGI("[armino_component_register_ex]: __REQUIRES: ${__REQUIRES}, __PRIV_REQUIRES: ${__PRIV_REQUIRES}.")
+    __component_set_property(${component_target} REQUIRES "${__REQUIRES}")
+    __component_set_property(${component_target} PRIV_REQUIRES "${__PRIV_REQUIRES}")
+
+    # Set dependencies
+    __component_set_all_dependencies()
+
+    set(__component_registered 1)
+    __component_set_property(${component_target} COMPONENT_REGISTERED ${__component_registered})
+    __build_expand_requirements(${component_target})
+
+
+    # Make the COMPONENT_LIB variable available in the component CMakeLists.txt
+    set(COMPONENT_LIB ${component_lib} PARENT_SCOPE)
+    # COMPONENT_TARGET is deprecated but is made available with same function
+    # as COMPONENT_LIB for compatibility.
+    set(COMPONENT_TARGET ${component_lib} PARENT_SCOPE)
+
+    __component_set_properties()
+endfunction()
+
 
 #
 # Deprecated functions

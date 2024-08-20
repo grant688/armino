@@ -18,6 +18,12 @@ menu "Arch::Riscv"
 			help
 				Support nest interrupt
 
+		config DUMP_ENABLE
+			bool "Enable Dump Feature"
+			default n
+			help
+				Dump all memory when exception happen
+
 		config MEMDUMP_ALL
 			bool "Enable Memdump All"
 			default y
@@ -41,4 +47,12 @@ menu "Arch::Riscv"
 			help
 				Custom defined sram mapping
 	endmenu
+
+	config CPU0_FLASH_SIZE
+		hex "CPU0 Flash Size"
+		default 0x1B0000
+		help
+			CPU0 flash size
+
+	
 endmenu

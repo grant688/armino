@@ -465,6 +465,30 @@ static bk_err_t mb_phy_chnl_tx_cmd_sync(u8 log_chnl, mb_phy_chnl_cmd_t *cmd_ptr)
 	return ret_code;
 }
 
+static bk_err_t mb_phy_chnl_tx_reset(u8 log_chnl)
+{
+	u8		phy_chnl_idx = GET_DST_CPU_ID(log_chnl);   // = DST_CPU_ID;
+
+	mb_phy_chnl_cb_t * phy_chnl_ptr;
+
+	if(phy_chnl_idx >= PHY_CHNL_NUM)
+		return BK_ERR_PARAM;
+
+	phy_chnl_ptr = &phy_chnl_x_cb[phy_chnl_idx];
+
+	u32   int_mask = rtos_disable_int();
+
+	if( (phy_chnl_ptr->tx_state != CHNL_STATE_ILDE) && 
+		(phy_chnl_ptr->tx_log_chnl == log_chnl) )
+	{
+		phy_chnl_ptr->tx_state = CHNL_STATE_ILDE;
+	}
+	
+	rtos_enable_int(int_mask);
+
+	return BK_OK;
+}
+
 /* =====================      logical channel APIs      ==================*/
 /*
   * init logical chnanel module.
@@ -608,6 +632,8 @@ bk_err_t mb_chnl_close(u8 log_chnl)
 	log_chnl_cb_x[log_chnl_idx].tx_isr = NULL;
 	log_chnl_cb_x[log_chnl_idx].tx_cmpl_isr = NULL;
 
+	mb_phy_chnl_tx_reset(log_chnl);
+
 	return BK_OK;
 }
 
@@ -742,6 +768,12 @@ bk_err_t mb_chnl_ctrl(u8 log_chnl, u8 cmd, void * param)
 				return BK_ERR_NULL_PARAM;
 
 			ret_code = mb_phy_chnl_tx_cmd_sync(log_chnl, (mb_phy_chnl_cmd_t *)param);
+			return ret_code;
+			break;
+
+		case MB_CHNL_TX_RESET:
+			log_chnl_cb_x[log_chnl_idx].tx_state = CHNL_STATE_ILDE; 
+			ret_code = mb_phy_chnl_tx_reset(log_chnl);
 			return ret_code;
 			break;
 

@@ -23,14 +23,12 @@
 
 #define MAILBOX_HOST		MAILBOX_CPU0
 
-#define CHNL_BUFF_LEN		128
-
 /* all slave CPUs must send msg to MAILBOX_HOST ONLY. */
 /* all slave CPUs can't communicate with each other. */
 typedef struct
 {
-	u8		host_tx_buff[SYSTEM_CPU_NUM - 1][CHNL_BUFF_LEN];
-	u8		host_rx_buff[SYSTEM_CPU_NUM - 1][CHNL_BUFF_LEN];
+	u8		host_tx_buff[SYSTEM_CPU_NUM - 1][MB_CHNL_BUFF_LEN];
+	u8		host_rx_buff[SYSTEM_CPU_NUM - 1][MB_CHNL_BUFF_LEN];
 } chnl_xchg_buff_t;
 
 extern char _swap_start, _swap_end;
@@ -85,7 +83,7 @@ void * mb_chnl_get_tx_buff(u8 chnl_id)
 	}
 
 	#if 0
-	if((tx_buf + CHNL_BUFF_LEN) > xchg_buff_end)  //  > or >= ?
+	if((tx_buf + MB_CHNL_BUFF_LEN) > xchg_buff_end)  //  > or >= ?
 	{
 		return NULL; // buffer overflow.
 	}
@@ -121,7 +119,7 @@ void * mb_chnl_get_rx_buff(u8 chnl_id)
 	}
 
 	#if 0
-	if((rx_buf + CHNL_BUFF_LEN) > xchg_buff_end)  //  > or >= ?
+	if((rx_buf + MB_CHNL_BUFF_LEN) > xchg_buff_end)  //  > or >= ?
 	{
 		return NULL; // buffer overflow.
 	}
@@ -132,7 +130,7 @@ void * mb_chnl_get_rx_buff(u8 chnl_id)
 
 u32 mb_chnl_get_buff_len(void)
 {
-	return CHNL_BUFF_LEN;
+	return MB_CHNL_BUFF_LEN;
 }
 
 #endif

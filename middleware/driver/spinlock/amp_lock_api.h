@@ -34,10 +34,12 @@ enum
 bk_err_t amp_res_lock_acquire(u16 res_id, u32 timeout_ms, const char * func_name, int line_no);
 bk_err_t amp_res_lock_release(u16 res_id, const char * func_name, int line_no);
 bk_err_t amp_res_lock_init(u16 res_id);
+bk_err_t amp_res_lock_reset_all(void);
 
 #define amp_res_acquire(res_id, timeout_ms)  	amp_res_lock_acquire(res_id, timeout_ms, __FUNCTION__, __LINE__)
 #define amp_res_release(res_id)					amp_res_lock_release(res_id, __FUNCTION__, __LINE__)
 #define amp_res_init(res_id)					amp_res_lock_init(res_id)
+#define amp_reset()								amp_res_lock_reset_all()
 
 #ifdef __cplusplus
 }

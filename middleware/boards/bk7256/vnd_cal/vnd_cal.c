@@ -549,7 +549,7 @@ const static AUTO_PWR_CALI_CONTEXT auto_pwr =
 
 
 const UINT32 g_default_xtal       = DEFAULT_TXID_XTAL;
-const UINT32 g_cmtag_flag         = CMTAG_FROM_FLASH;
+UINT32 g_cmtag_flag               = CMTAG_FROM_FLASH;
 const UINT32 g_pwr_gain_base_ble  = PWR_GAIN_BASE_BLE;
 const UINT32 pwr_gain_base_gain_b = PWR_GAIN_BASE_B;
 const UINT32 pwr_gain_base_gain_g = PWR_GAIN_BASE_G;
@@ -560,6 +560,8 @@ const INT16 shift_tab_g[8]        = {0,  2,  2, 2,  3, 3,  4, 4/*4*/}; // 54M ba
 const INT16 shift_tab_n20[10]     = {-4,  -4,  0, 2,  2, 2,  3, 3,  4, 4/*4*/}; // n20 mcs8 mcs9 mcs7(base) -  mcs0,
 const INT16 shift_tab_n40[10]     = {-4,  -4,  0, 2,  2, 2,  3, 3,  4, 4/*4*/}; // n40 mcs8 mcs9 mcs7(base) -  mcs0,
 
+char *vnd_cal_version             = "24-04-10 00:00:00";
+
 void vnd_cal_overlay(void)
 {
     vnd_cal_set_auto_pwr_thred(auto_pwr);
@@ -569,6 +571,7 @@ void vnd_cal_overlay(void)
 #else
     vnd_cal_set_epa_config(0, GPIO_28, GPIO_26, pwr_gain_base_gain_b, pwr_gain_base_gain_g);
 #endif
+    vnd_cal_version_log(vnd_cal_version);
 }
 
 

@@ -92,6 +92,8 @@ endif()
 
 list(APPEND link_options "-fno-lto")
 
+list(APPEND compile_options "-Wno-builtin-macro-redefined")
+
 armino_build_set_property(COMPILE_OPTIONS "${compile_options}" APPEND)
 armino_build_set_property(C_COMPILE_OPTIONS "${c_compile_options}" APPEND)
 armino_build_set_property(CXX_COMPILE_OPTIONS "${cxx_compile_options}" APPEND)

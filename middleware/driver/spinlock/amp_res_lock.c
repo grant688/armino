@@ -261,6 +261,27 @@ bk_err_t amp_res_lock_init(u16 res_id)
 	return BK_OK;
 }
 
+bk_err_t amp_res_lock_reset_all(void)
+{
+#ifdef AMP_RES_SERVER
+
+	u16 res_id = 0;
+
+	for(res_id = 0; res_id < AMP_RES_ID_MAX; res_id++)
+	{
+		u16 i = 0;
+
+		for(i = 0; i < AMP_CPU_CNT; i++)
+		{
+			amp_res_sync[res_id].req_cnt[i] = 0;
+		}
+	}
+
+#endif
+
+	return BK_OK;
+}
+
 #else
 
 bk_err_t amp_res_lock_acquire(u16 res_id, u32 timeout_ms, const char * func_name, int line_no)
@@ -319,6 +340,11 @@ bk_err_t amp_res_lock_init(u16 res_id)
 
 	amp_res_sync[res_id].inited = 1;
 
+	return BK_OK;
+}
+
+bk_err_t amp_res_lock_reset_all(void)
+{
 	return BK_OK;
 }
 

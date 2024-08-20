@@ -23,9 +23,9 @@
 #define LCD_QSPI_ST77903_SAT61478M_REGISTER_READ_COMMAND		0xDD
 #define LCD_QSPI_ST77903_SAT61478M_HSYNC_COMMAND				0x60
 #define LCD_QSPI_ST77903_SAT61478M_VSYNC_COMMAND				0x61
-#define LCD_QSPI_ST77903_SAT61478M_VSW	(2)
-#define LCD_QSPI_ST77903_SAT61478M_HFP	(4)
-#define LCD_QSPI_ST77903_SAT61478M_HBP	(4)
+#define LCD_QSPI_ST77903_SAT61478M_VSW	(1)
+#define LCD_QSPI_ST77903_SAT61478M_HFP	(6)
+#define LCD_QSPI_ST77903_SAT61478M_HBP	(6)
 
 
 static const lcd_qspi_init_cmd_t st77903_sat61478m_init_cmds[] = {
@@ -70,6 +70,15 @@ static const lcd_qspi_init_cmd_t st77903_sat61478m_init_cmds[] = {
 	{0xff, {0x78}, 1},
 	{0x29, {0x00}, 0},
 };
+
+#if 0
+static const lcd_qspi_init_cmd_t st77903_sat61478m_deinit_cmds[] = {
+	{0x28, {0x00}, 0},
+	{0xff, {0x32}, 1},
+	{0x10, {0x00}, 0},
+	{0xff, {0x78}, 1},
+};
+#endif
 
 static uint8_t st77903_sat61478m_cmd[4] = {0xDE, 0x00, 0x60, 0x00};
 

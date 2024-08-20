@@ -176,6 +176,7 @@ enum
 	MB_CHNL_SET_TX_ISR,
 	MB_CHNL_SET_TX_CMPL_ISR,
 	MB_CHNL_WRITE_SYNC,
+	MB_CHNL_TX_RESET,
 };
 
 /*
@@ -268,6 +269,7 @@ bk_err_t mb_chnl_write(u8 log_chnl, mb_chnl_cmd_t * cmd_buf);
   *        MB_CHNL_SET_TX_ISR:   param, pointer to tx_isr_callback.
   *        MB_CHNL_SET_TX_CMPL_ISR:   param, pointer to tx_cmpl_isr_callback.
   *        MB_CHNL_WRITE_SYNC:   param, pointer to mb_chnl_cmd_t buffer, write to mailbox synchronously.
+  *        MB_CHNL_TX_RESET: param is NULL.
   * return:
   *     succeed: BK_OK;
   *     failed  : fail code.

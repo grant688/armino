@@ -268,8 +268,21 @@ __attribute__((section(".itcm_sec_code")))	void vPortSuppressTicksAndSleep( Tick
 #endif //if (configUSE_TICKLESS_IDLE == 1)
 /*-----------------------------------------------------------*/
 
-#if (configUSE_TICKLESS_IDLE == 2)
+void rtos_time_compensate(void) {
+#if CONFIG_AON_RTC
+	UBaseType_t uxSavedInterruptState;
+	TickType_t xSleepTicks = rtos_get_time_diff();
+	if(xSleepTicks != 0 && xSleepTicks != 1) {
 
+		uxSavedInterruptState = portSET_INTERRUPT_MASK_FROM_ISR();
+		vTaskStepTick(xSleepTicks - 1);
+		portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptState);
+	}
+#endif
+}
+
+
+#if (configUSE_TICKLESS_IDLE == 2)
 
 __attribute__((section(".itcm_sec_code")))	void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime )
 {
@@ -282,7 +295,6 @@ __attribute__((section(".itcm_sec_code")))	void vPortSuppressTicksAndSleep( Tick
 #endif
 	UBaseType_t uxSavedInterruptState;
 
-	TickType_t  xSleepTicks;
 
 #if CONFIG_SYSTEM_CTRL
 	TickType_t xModifiableIdleTime;
@@ -330,17 +342,7 @@ __attribute__((section(".itcm_sec_code")))	void vPortSuppressTicksAndSleep( Tick
 		__asm volatile( "wfi" );
 #endif
 
-#if CONFIG_AON_RTC
-		xSleepTicks = rtos_get_time_diff();
-
-		if(xSleepTicks != 0 && xSleepTicks != 1) {
-			if(pm_debug_mode()&0x8) {
-            	BK_LOGI(TAG, "expect%dsleep%dms.\r\n", xExpectedIdleTime<<1, xSleepTicks<<1);
-   			}
-
-			vTaskStepTick(xSleepTicks - 1);
-		}
-#endif
+		rtos_time_compensate();
 		/* Exit with interrpts enabled. */
 		portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptState);
 	}

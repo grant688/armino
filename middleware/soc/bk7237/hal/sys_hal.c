@@ -132,6 +132,25 @@ uint32_t sys_hal_flash_get_clk_div(void)
 /*sleep feature start*/
 #define EFUSE_OPERT_ADDRE    (0x1F)//byte31
 #define EFUSE_FLASH_AES_POS  (0x5)
+#define SWITCH_CPU_FREQ_DELAY                           (15)      // 15us
+#define PM_VDDDIG_1P3V                                  (0x6)     // 1.3v
+#define PM_VDDDIG_1P15V                                 (0x7)     // 1.15v
+extern void delay_us(UINT32 us);
+#define BIT_AON_PMU_WAKEUP_ENA                          (0x1F0U)
+#define PM_HARDEARE_DELAY_TIME_FROM_LOWVOL_WAKE         (0x4)
+#define PM_EXIT_WFI_FROM_LOWVOL_WAIT_COUNT              (100)// about 4us(using 26m clock)
+//specify:low voltage process can't be interrupt or the system can't response external interrupt after wakeup.
+#if 1
+#define MTIMER_LOW_VOLTAGE_MINIMUM_TICK                (10400)	//26M, 400 us
+extern void mtimer_reset_next_tick(uint32_t minimum_offset);
+
+#define CONFIG_LOW_VOLTAGE_DEBUG 0
+#if CONFIG_LOW_VOLTAGE_DEBUG
+uint64_t g_low_voltage_tick = 0;
+extern u64 riscv_get_mtimer(void);
+#endif
+#endif
+extern uint64_t ps_mac_wakeup_from_lowvol;
 __attribute__((section(".itcm_sec_code"))) void sys_hal_enter_deep_sleep(void * param)
 {
     uint32_t modules_power_state=0;
@@ -139,6 +158,39 @@ __attribute__((section(".itcm_sec_code"))) void sys_hal_enter_deep_sleep(void * 
 	uint32_t  pmu_val2 = 0;
 	int       ret = 0;
 	uint8_t   efuse_data= 0;
+	uint32_t  int_state1 = 0;
+	uint32_t  int_state2 = 0;
+	HAL_TI_DISABLE();
+
+	int_state1 = sys_ll_get_cpu0_int_0_31_en_value();
+	int_state2 = sys_ll_get_cpu0_int_32_63_en_value();
+	sys_ll_set_cpu0_int_0_31_en_value(0x0);
+	sys_ll_set_cpu0_int_32_63_en_value(0x0);
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+	__asm volatile( "nop" );
+
+	//confirm here hasn't mtimer/external interrupt
+	if(arch_get_plic_pending_status() ||
+		mtimer_is_timeout())
+	{
+		sys_ll_set_cpu0_int_0_31_en_value(int_state1);
+		sys_ll_set_cpu0_int_32_63_en_value(int_state2);
+		HAL_TI_ENABLE();
+		return;
+	}
+
+	//below interval time is about 5240(maybe CPU/Flash clock changes):
+	//after sys_ll_set_cpu0_int_halt_clk_op_cpu0_int_mask
+	//before WFI
+	mtimer_reset_next_tick(MTIMER_LOW_VOLTAGE_MINIMUM_TICK);
 	/*mask all interner interrupt*/
 	sys_ll_set_cpu0_int_halt_clk_op_cpu0_int_mask(1);
 
@@ -164,6 +216,9 @@ __attribute__((section(".itcm_sec_code"))) void sys_hal_enter_deep_sleep(void * 
 	clock_value &= ~(SYS_CPU_CLK_DIV_MODE2_CKDIV_FLASH_MASK << SYS_CPU_CLK_DIV_MODE2_CKDIV_FLASH_POS);
 	sys_ll_set_cpu_clk_div_mode2_value(clock_value);
 
+	sys_ll_set_cpu0_int_32_63_en_cpu0_gpio_int_en(0x1);
+	sys_ll_set_cpu0_int_32_63_en_cpu0_rtc_int_en(0x1);
+	sys_ll_set_cpu0_int_32_63_en_cpu0_touched_int_en(0x1);
 	/*3.close high frequncy clock*/
 	clock_value = 0;
     clock_value = sys_ll_get_ana_reg6_value();
@@ -251,23 +306,7 @@ void sys_hal_exit_low_voltage()
 
 }
 
-#define BIT_AON_PMU_WAKEUP_ENA                   (0x1F0U)
-#define PM_HARDEARE_DELAY_TIME_FROM_LOWVOL_WAKE  (0x4)
-#define PM_EXIT_WFI_FROM_LOWVOL_WAIT_COUNT       (100)// about 4us(using 26m clock)
-//specify:low voltage process can't be interrupt or the system can't response external interrupt after wakeup.
-#if 1
-#define MTIMER_LOW_VOLTAGE_MINIMUM_TICK (10400)	//26M, 400 us
-extern void mtimer_reset_next_tick(uint32_t minimum_offset);
 
-#define CONFIG_LOW_VOLTAGE_DEBUG 0
-#if CONFIG_LOW_VOLTAGE_DEBUG
-uint64_t g_low_voltage_tick = 0;
-extern u64 riscv_get_mtimer(void);
-#endif
-#endif
-#if CONFIG_WIFI_ENABLE
-extern uint64_t ps_mac_wakeup_from_lowvol;
-#endif
 __attribute__((section(".itcm_sec_code"))) void sys_hal_enter_low_voltage(void)
 {
 	uint32_t  modules_power_state = 0;

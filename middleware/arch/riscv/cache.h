@@ -22,4 +22,7 @@ void flush_all_dcache(void);
 
 void enable_dcache(int enable);
 
+void flush_icache(void *va, long size);
+void flush_all_icache(void) ;
+
 #endif //__CACHE_H__

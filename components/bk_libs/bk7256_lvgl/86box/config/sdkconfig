@@ -601,6 +601,7 @@ CONFIG_MAILBOX=y
 # TP
 #
 # CONFIG_TP is not set
+CONFIG_TP_MIRROR_TYPE=0
 # end of TP
 
 #
@@ -626,11 +627,14 @@ CONFIG_ARCH_RISCV=y
 # Modify Arch Riscv Config
 #
 CONFIG_NEST_INT_SUPPORT=y
+# CONFIG_DUMP_ENABLE is not set
 CONFIG_MEMDUMP_ALL=y
 # CONFIG_SAVE_BOOT_TIME_POINT is not set
 CONFIG_CACHE_ENABLE=y
 # CONFIG_CACHE_CUSTOM_SRAM_MAPPING is not set
 # end of Modify Arch Riscv Config
+
+CONFIG_CPU0_FLASH_SIZE=0x1B0000
 # end of Arch::Riscv
 
 #

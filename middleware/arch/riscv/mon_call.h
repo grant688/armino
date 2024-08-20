@@ -231,8 +231,8 @@ u32 mon_create_otp(u32 data_id, u32 *buf, u32 len, u32 attr);
  *
  * This API is used to set the memory protection for the specified range (start_addr & size) with the attributes.
  *
- * @param start_addr  start address of the protection range, MUST be aligned with 8 bytes..
- * @param size    size of the protection range, MUST be >= 8 bytes.
+ * @param start_addr  start address of the protection range, MUST be aligned with 32 bytes..
+ * @param size    size of the protection range, MUST be >= 32 bytes, and must be multiple of 32 bytes.
  * @param attr   execution (PMP_X_ON), write (PMP_W_ON), read (PMP_R_ON). can be any combinations of the 3 attributes.
  *
  * @attention this API may use 1~2 entries for one setting, relies on the alignment of the start address and the size of the range.

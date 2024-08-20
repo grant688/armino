@@ -5,7 +5,7 @@
 
 一、工具下载
 +++++++++++++++++++++
-  相关工具 `下载地址 </dl.bekencorp.com/tools/flash/>`_
+  相关工具 `下载地址 <https://dl.bekencorp.com/tools/flash/>`_
 
 二、安全相关配置文件
 +++++++++++++++++++++

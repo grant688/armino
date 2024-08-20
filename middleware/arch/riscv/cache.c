@@ -208,3 +208,29 @@ void enable_dcache(int enable)
     // RISC-V enable dcache as default
     return;
 }
+
+void flush_icache(void *va, long size)
+{
+	unsigned int  line_size = 32;
+	unsigned int  start_line_va, end_va;
+
+	start_line_va = (((unsigned int)va) & (~(line_size - 1)));
+	end_va = (unsigned int)va + size;
+
+	// flush area: [start_line_va, end_va) .
+
+    /* L1C iCache write back and invalidate */
+    while (start_line_va < end_va)
+	{
+        /* Write back and invalid one cache line each time */
+        write_csr(NDS_UCCTLBEGINADDR, (unsigned long)start_line_va);
+        start_line_va += line_size;
+        write_csr(NDS_UCCTLCOMMAND, CCTL_L1I_VA_INVAL);
+    }
+}
+
+void flush_all_icache(void) 
+{
+	__asm volatile( "fence.i" );
+}
+

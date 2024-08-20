@@ -74,20 +74,8 @@ static float cli_adc_read(UINT8 adc_chan)
     BK_LOG_ON_ERR(bk_adc_enable_bypass_clalibration());
     BK_LOG_ON_ERR(bk_adc_start());
     BK_LOG_ON_ERR(bk_adc_read(&value, ADC_READ_SEMAPHORE_WAIT_TIME));
-    
-    if(adc_chan == 0)
-    {
-        cali_value = saradc_calculate(value);
-        cali_value = cali_value*5/2;
-    }
-    else if(adc_chan == 7 || adc_chan == 8 || adc_chan == 9)
-    {
-        CLI_LOGI("adc_chan %d has been used\r\n", adc_chan);
-    }
-    else
-    {
-        cali_value = saradc_calculate(value);
-    }
+
+    cali_value = bk_adc_data_calculate(value, adc_chan);
 
     bk_adc_stop();
     sys_drv_set_ana_pwd_gadc_buf(0);

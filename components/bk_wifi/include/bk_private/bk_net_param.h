@@ -24,6 +24,7 @@ extern "C" {
 
 #define NET_INFO_MAC_ADDR_OFFSET			0x0
 #define NET_INFO_FAST_CONNECT_OFFSET		0x6
+#define NET_INFO_POWERON_CLAI_OFFSET        0xF00
 
 typedef enum {
 	FAST_CONNECT_ITEM	= 0x00001111,
@@ -42,7 +43,9 @@ typedef enum {
 	DID_STR_ITEM	= 0xcccccccc,
 	USER_PSW_ITEM	= 0xdddddddd,
 	CAMERA_PARA_ITEM	= 0xeeeeeeee,
-	REBOOT_FLAG_ITEM    = 0xffffffff
+	REBOOT_FLAG_ITEM    = 0xffffffff,
+	POWERON_CALI_TX_ITEM   = 0xeeeeffff,
+	POWERON_CALI_RX_ITEM   = 0xffffeeee,
 } NET_INFO_ITEM;
 
 typedef struct info_item_st {
@@ -121,11 +124,33 @@ typedef struct item_ip_config_st {
 	char gateway_ip_addr[16];
 } ITEM_IP_CONFIG_ST, *ITEM_IP_CONFIG_ST_PTR;
 
+typedef struct item_poweron_cali_rx_st {
+    INFO_ITEM_ST head;
+    INT32 rx_dc_tab[8];
+    INT32 rx_amp_err;
+    INT32 rx_phase_err;
+} ITEM_POWERON_CALI_RX_ST, *ITEM_POWERON_CALI_RX_ST_PTR;
+
+typedef struct item_poweron_cali_tx_st {
+    INFO_ITEM_ST head;
+    INT32 tx_dcorMod;
+    INT32 tx_dcorPA;
+    INT32 tx_pre_gain;
+    INT32 tx_i_dc_comp;
+    INT32 tx_q_dc_comp;
+    INT32 tx_i_gain_comp;
+    INT32 tx_q_gain_comp;
+    INT32 tx_ifilter_corner;
+    INT32 tx_qfilter_corner;
+    INT32 tx_phase_comp;
+    INT32 tx_phase_ty2;
+} ITEM_POWERON_CALI_TX_ST, *ITEM_POWERON_CALI_TX_ST_PTR;
+
 UINT32 test_get_whole_tbl(UINT8 *ptr);
 UINT32 save_info_item(NET_INFO_ITEM item, UINT8 *ptr0, UINT8 *ptr1, UINT8 *ptr2);
 UINT32 get_info_item(NET_INFO_ITEM item, UINT8 *ptr0, UINT8 *ptr1, UINT8 *ptr2);
 UINT32 save_net_info(NET_INFO_ITEM item, UINT8 *ptr0, UINT8 *ptr1, UINT8 *ptr2);
-UINT32 get_net_info(NET_INFO_ITEM item, UINT8 *ptr0, UINT8 *ptr1, UINT8 *ptr2);
+INT32 get_net_info(NET_INFO_ITEM item, UINT8 *ptr0, UINT8 *ptr1, UINT8 *ptr2);
 
 #ifdef __cplusplus
 }

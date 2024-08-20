@@ -637,7 +637,7 @@ void iperf_config(int argc, char **argv)
 
 void iperf(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	int id, mode, addr;
+	int id, mode;
 	char *host = NULL;
 	int is_udp_flag = 0;
 	int port = IPERF_PORT;
@@ -692,9 +692,8 @@ void iperf(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 		id = iperf_param_find_id(argc, argv, "-c");
 		if (IPERF_INVALID_INDEX != id) {
 			host = argv[id + 1];
-			addr = inet_addr(host);
 
-			if ((IPADDR_NONE == addr) || (argc - 1 < id + 1))
+			if (argc - 1 < id + 1)
 				goto __usage;
 		}
 	}

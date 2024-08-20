@@ -774,6 +774,9 @@ netconn_alloc(enum netconn_type t, netconn_callback callback)
 #if LWIP_TCP
   conn->current_msg  = NULL;
 #endif /* LWIP_TCP */
+#if LWIP_SO_CONTIMEO
+  conn->conn_timeout = 0;
+#endif
 #if LWIP_SO_SNDTIMEO
   conn->send_timeout = 0;
 #endif /* LWIP_SO_SNDTIMEO */

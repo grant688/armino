@@ -265,7 +265,7 @@ void sys_delay_sync(uint32_t time_count )
 extern void smem_dump_lastblock(void);
 void user_except_handler (unsigned long mcause, SAVED_CONTEXT *context)
 {
-#if CONFIG_DEBUG_FIRMWARE
+#if CONFIG_DEBUG_FIRMWARE || CONFIG_DUMP_ENABLE
 	BK_LOG_FLUSH();
 	bk_set_printf_sync(true);
 
@@ -334,7 +334,7 @@ void set_nmi_vector(void) {
 }
 
 void user_nmi_handler(unsigned long mcause, unsigned long ra) {
-#if CONFIG_DEBUG_FIRMWARE
+#if CONFIG_DEBUG_FIRMWARE || CONFIG_DUMP_ENABLE
 	if(g_enter_nmi_vector == 1)
 #endif
 	{
@@ -344,7 +344,7 @@ void user_nmi_handler(unsigned long mcause, unsigned long ra) {
 		while(1);
 	}
 
-#if CONFIG_DEBUG_FIRMWARE
+#if CONFIG_DEBUG_FIRMWARE || CONFIG_DUMP_ENABLE
 	g_enter_nmi_vector = 1;
 
 	if(mcause == MCAUSE_CAUSE_WATCHDOG) {

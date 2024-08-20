@@ -531,7 +531,7 @@ static void gpio_config_wakeup_function(void)
 		gpio_wakeup_set_pin_voltage_status(gpio_wakeup_map[i].id, gpio_wakeup_map[i].int_type);
 		bk_gpio_set_interrupt_type(gpio_wakeup_map[i].id, gpio_wakeup_map[i].int_type);
 		//bk_gpio_enable_interrupt(gpio_wakeup_map[i].id);
-		wakeup_id |= 0x1<<gpio_wakeup_map[i].id;
+		wakeup_id |= (uint64_t)0x1<<gpio_wakeup_map[i].id;
 		s_gpio_is_setted_wake_status |= ((uint64_t)1 << gpio_wakeup_map[i].id);
 	}
 
@@ -555,7 +555,7 @@ static void gpio_config_wakeup_function(void)
 			gpio_wakeup_set_pin_voltage_status(s_gpio_dynamic_wakeup_source_map[i].id, s_gpio_dynamic_wakeup_source_map[i].int_type);
 			bk_gpio_set_interrupt_type(s_gpio_dynamic_wakeup_source_map[i].id, s_gpio_dynamic_wakeup_source_map[i].int_type);
 			//bk_gpio_enable_interrupt(s_gpio_dynamic_wakeup_source_map[i].id);
-			wakeup_id |= 0x1<<s_gpio_dynamic_wakeup_source_map[i].id;
+			wakeup_id |= (uint64_t)0x1<<s_gpio_dynamic_wakeup_source_map[i].id;
 			s_gpio_is_setted_wake_status |= ((uint64_t)1 << s_gpio_dynamic_wakeup_source_map[i].id);
 		}
 	}

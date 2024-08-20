@@ -24,7 +24,6 @@
  *  STATIC PROTOTYPES
  **********************/
 #if (defined(CONFIG_MASTER_CORE) || !defined(CONFIG_DUAL_CORE))
-#if LVGL_USE_PSRAM
 static void _memset_word(uint32_t *b, int32_t c, uint32_t n)
 {
     // Note:
@@ -66,7 +65,6 @@ static void _memset_color(lv_color_t * dest_buf, lv_color_t color, uint32_t poin
         *((volatile unsigned int *)tmp_ptr) = (next_ptr->full << 16) | color.full;
     }
 }
-#endif
 
 void lv_memcpy_one_line(void *dest_buf, const void *src_buf, uint32_t point_num)
 {
@@ -159,15 +157,17 @@ static inline lv_color_t color_blend_true_color_multiply(lv_color_t fg, lv_color
     mask++;                                                         \
     dest_buf++;
 
-#if !LVGL_USE_PSRAM
 #define MAP_NORMAL_MASK_PX(x)                                                          \
+do{ \
     if(*mask_tmp_x) {          \
         if(*mask_tmp_x == LV_OPA_COVER) dest_buf[x] = src_buf[x];                                 \
         else dest_buf[x] = lv_color_mix(src_buf[x], dest_buf[x], *mask_tmp_x);            \
     }                                                                                               \
-    mask_tmp_x++;
-#else
-#define MAP_NORMAL_MASK_PX(x)                                                          \
+    mask_tmp_x++;\
+}while(0);
+
+#define MAP_NORMAL_MASK_PX_ALIGN(x)                                                          \
+do{ \
     if(*mask_tmp_x) {          \
         if(*mask_tmp_x == LV_OPA_COVER) tmp_color = src_buf[x];                                 \
         else tmp_color = lv_color_mix(src_buf[x], dest_buf[x], *mask_tmp_x);            \
@@ -177,8 +177,8 @@ static inline lv_color_t color_blend_true_color_multiply(lv_color_t fg, lv_color
         else    \
             *((volatile unsigned int *)(dest_buf + x -1)) = (tmp_color.full << 16) | dest_buf[x - 1].full;    \
     }                                                                                               \
-    mask_tmp_x++;
-#endif
+    mask_tmp_x++; \
+}while(0);
 
 
 /**********************
@@ -333,37 +333,41 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t * dest_buf_tmp, const l
     int32_t x;
     int32_t y;
     lv_color_t * dest_buf;
-#if LVGL_USE_PSRAM
-    lv_color_t * dest_buf_bak;
-#endif
+    lv_color_t * dest_buf_bak = NULL;
 
-    #if !LVGL_USE_PSRAM
-    dest_buf = dest_buf_tmp;
-    #else
-    dest_buf = LV_MEM_CUSTOM_ALLOC(w * sizeof(lv_color_t));
-    if(!dest_buf)
+    if((u32)dest_buf_tmp < 0x60000000)
     {
-        bk_printf("[%s][%d] malloc fail\r\n", __FUNCTION__, __LINE__);
-        return ;
+        dest_buf = dest_buf_tmp;
     }
+    else
+    {
+        dest_buf = LV_MEM_CUSTOM_ALLOC(w * sizeof(lv_color_t));
+        if(!dest_buf)
+        {
+            bk_printf("[%s][%d] malloc fail\r\n", __FUNCTION__, __LINE__);
+            return ;
+        }
 
-    dest_buf_bak = dest_buf;
-    #endif
+        dest_buf_bak = dest_buf;
+    }
     
     /*No mask*/
     if(mask == NULL) {
         if(opa >= LV_OPA_MAX) {
-            #if LVGL_USE_PSRAM
-            _memset_color(dest_buf, color, w);
-            #endif
+            if((u32)dest_buf_tmp >= 0x60000000)
+                _memset_color(dest_buf, color, w);
+            
             for(y = 0; y < h; y++) {
-                #if !LVGL_USE_PSRAM
-                lv_color_fill(dest_buf, color, w);
-                dest_buf += dest_stride;
-                #else
-                lv_memcpy_one_line(dest_buf_tmp, dest_buf, w);
-                dest_buf_tmp += dest_stride;
-                #endif
+                if((u32)dest_buf_tmp < 0x60000000)
+                {
+                    lv_color_fill(dest_buf, color, w);
+                    dest_buf += dest_stride;
+                }
+                else
+                {
+                    lv_memcpy_one_line(dest_buf_tmp, dest_buf, w);
+                    dest_buf_tmp += dest_stride;
+                }
             }
         }
         /*Has opacity*/
@@ -384,10 +388,11 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t * dest_buf_tmp, const l
             lv_opa_t opa_inv = 255 - opa;
 
             for(y = 0; y < h; y++) {
-                #if LVGL_USE_PSRAM
-                dest_buf = dest_buf_bak;
-                lv_memcpy_one_line(dest_buf, dest_buf_tmp, w);
-                #endif
+                if((u32)dest_buf_tmp >= 0x60000000)
+                {
+                    dest_buf = dest_buf_bak;
+                    lv_memcpy_one_line(dest_buf, dest_buf_tmp, w);
+                }
                 
                 for(x = 0; x < w; x++) {
                     if(last_dest_color.full != dest_buf[x].full) {
@@ -398,12 +403,15 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t * dest_buf_tmp, const l
                     dest_buf[x] = last_res_color;
                 }
 
-                #if !LVGL_USE_PSRAM
-                dest_buf += dest_stride;
-                #else
-                lv_memcpy_one_line(dest_buf_tmp, dest_buf, w);
-                dest_buf_tmp += dest_stride;
-                #endif
+                if((u32)dest_buf_tmp < 0x60000000)
+                {
+                    dest_buf += dest_stride;
+                }
+                else
+                {
+                    lv_memcpy_one_line(dest_buf_tmp, dest_buf, w);
+                    dest_buf_tmp += dest_stride;
+                }
             }
         }
     }
@@ -416,10 +424,11 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t * dest_buf_tmp, const l
         if(opa >= LV_OPA_MAX) {
             int32_t x_end4 = w - 4;
             for(y = 0; y < h; y++) {
-                #if LVGL_USE_PSRAM
-                dest_buf = dest_buf_bak;
-                lv_memcpy_one_line(dest_buf, dest_buf_tmp, w);
-                #endif
+                if((u32)dest_buf_tmp >= 0x60000000)
+                {
+                    dest_buf = dest_buf_bak;
+                    lv_memcpy_one_line(dest_buf, dest_buf_tmp, w);
+                }
                 
                 for(x = 0; x < w && ((lv_uintptr_t)(mask) & 0x3); x++) {
                     FILL_NORMAL_MASK_PX(color)
@@ -464,12 +473,15 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t * dest_buf_tmp, const l
                 for(; x < w ; x++) {
                     FILL_NORMAL_MASK_PX(color)
                 }
-                #if !LVGL_USE_PSRAM
-                dest_buf += (dest_stride - w);
-                #else
-                lv_memcpy_one_line(dest_buf_tmp, dest_buf_bak, w);
-                dest_buf_tmp += dest_stride;
-                #endif
+                if((u32)dest_buf_tmp < 0x60000000)
+                {
+                    dest_buf += (dest_stride - w);
+                }
+                else
+                {
+                    lv_memcpy_one_line(dest_buf_tmp, dest_buf_bak, w);
+                    dest_buf_tmp += dest_stride;
+                }
                 mask += (mask_stride - w);
             }
         }
@@ -484,10 +496,11 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t * dest_buf_tmp, const l
             lv_opa_t opa_tmp = LV_OPA_TRANSP;
 
             for(y = 0; y < h; y++) {
-                #if LVGL_USE_PSRAM
-                dest_buf = dest_buf_bak;
-                lv_memcpy_one_line(dest_buf, dest_buf_tmp, w);
-                #endif
+                if((u32)dest_buf_tmp >= 0x60000000)
+                {
+                    dest_buf = dest_buf_bak;
+                    lv_memcpy_one_line(dest_buf, dest_buf_tmp, w);
+                }
                 
                 for(x = 0; x < w; x++) {
                     if(*mask) {
@@ -503,24 +516,25 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t * dest_buf_tmp, const l
                     }
                     mask++;
                 }
-                #if !LVGL_USE_PSRAM
-                dest_buf += dest_stride;
-                #else
-                lv_memcpy_one_line(dest_buf_tmp, dest_buf_bak, w);
-                dest_buf_tmp += dest_stride;
-                #endif
+                if((u32)dest_buf_tmp < 0x60000000)
+                {
+                    dest_buf += dest_stride;
+                }
+                else
+                {
+                    lv_memcpy_one_line(dest_buf_tmp, dest_buf_bak, w);
+                    dest_buf_tmp += dest_stride;
+                }
                 mask += (mask_stride - w);
             }
         }
     }
 
-#if LVGL_USE_PSRAM
     if(dest_buf_bak)
     {
         LV_MEM_CUSTOM_FREE(dest_buf_bak);
         dest_buf_bak = NULL;
     }
-#endif
 }
 
 #if LV_COLOR_SCREEN_TRANSP
@@ -724,14 +738,17 @@ static void fill_blended(lv_color_t * dest_buf, const lv_area_t * dest_area,
                     last_dest_color = dest_buf[x];
                     last_res_color = blend_fp(color, dest_buf[x], opa);
                 }
-                #if !LVGL_USE_PSRAM
-                dest_buf[x] = last_res_color;
-                #else
-                if(((unsigned int)(dest_buf + x) & 0x3) == 0)
-                     *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                if((u32)dest_buf < 0x60000000)
+                {
+                    dest_buf[x] = last_res_color;
+                }
                 else
-                    *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
-                #endif
+                {
+                    if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                         *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                    else
+                        *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
+                }
             }
             dest_buf += dest_stride;
         }
@@ -756,14 +773,17 @@ static void fill_blended(lv_color_t * dest_buf, const lv_area_t * dest_area,
                     last_mask = mask[x];
                     last_dest_color.full = dest_buf[x].full;
                 }
-                #if !LVGL_USE_PSRAM
-                dest_buf[x] = last_res_color;
-                #else
-                if(((unsigned int)(dest_buf + x) & 0x3) == 0)
-                     *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                if((u32)dest_buf < 0x60000000)
+                {
+                    dest_buf[x] = last_res_color;
+                }
                 else
-                    *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
-                #endif
+                {
+                    if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                         *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                    else
+                        *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
+                }
             }
             dest_buf += dest_stride;
             mask += mask_stride;
@@ -816,19 +836,16 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t * dest_buf, const lv_are
 
     int32_t x;
     int32_t y;
-#if LVGL_USE_PSRAM
     lv_color_t tmp_color = {0};
-#endif
 
     /*Simple fill (maybe with opacity), no masking*/
     if(mask == NULL) {
         if(opa >= LV_OPA_MAX) {
             for(y = 0; y < h; y++) {
-                #if !LVGL_USE_PSRAM
-                lv_memcpy(dest_buf, src_buf, w * sizeof(lv_color_t));
-                #else
-                lv_memcpy_one_line(dest_buf, src_buf, w);
-                #endif
+                if((u32)dest_buf < 0x60000000)
+                    lv_memcpy(dest_buf, src_buf, w * sizeof(lv_color_t));
+                else
+                    lv_memcpy_one_line(dest_buf, src_buf, w);
                 dest_buf += dest_stride;
                 src_buf += src_stride;
             }
@@ -836,15 +853,18 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t * dest_buf, const lv_are
         else {
             for(y = 0; y < h; y++) {
                 for(x = 0; x < w; x++) {
-                    #if !LVGL_USE_PSRAM
-                    dest_buf[x] = lv_color_mix(src_buf[x], dest_buf[x], opa);
-                    #else
-                    tmp_color = lv_color_mix(src_buf[x], dest_buf[x], opa);
-                    if(((unsigned int)(dest_buf + x) & 0x3) == 0)
-                         *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | tmp_color.full;
+                    if((u32)dest_buf < 0x60000000)
+                    {
+                        dest_buf[x] = lv_color_mix(src_buf[x], dest_buf[x], opa);
+                    }
                     else
-                        *((volatile unsigned int *)(dest_buf + x - 1)) = (tmp_color.full << 16) | dest_buf[x - 1].full;
-                    #endif
+                    {
+                        tmp_color = lv_color_mix(src_buf[x], dest_buf[x], opa);
+                        if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                             *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | tmp_color.full;
+                        else
+                            *((volatile unsigned int *)(dest_buf + x - 1)) = (tmp_color.full << 16) | dest_buf[x - 1].full;
+                    }
                 }
                 dest_buf += dest_stride;
                 src_buf += src_stride;
@@ -865,38 +885,58 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t * dest_buf, const lv_are
                 }
 #else
                 for(x = 0; x < w && ((lv_uintptr_t)mask_tmp_x & 0x3); x++) {
-                    MAP_NORMAL_MASK_PX(x)
+                    if((u32)dest_buf < 0x60000000)
+                    {
+                        MAP_NORMAL_MASK_PX(x)
+                    }
+                    else
+                    {
+                        MAP_NORMAL_MASK_PX_ALIGN(x)
+                    }
                 }
 
                 uint32_t * mask32 = (uint32_t *)mask_tmp_x;
                 for(; x < x_end4; x += 4) {
                     if(*mask32) {
                         if((*mask32) == 0xFFFFFFFF) {
-                            #if !LVGL_USE_PSRAM
-                            dest_buf[x] = src_buf[x];
-                            dest_buf[x + 1] = src_buf[x + 1];
-                            dest_buf[x + 2] = src_buf[x + 2];
-                            dest_buf[x + 3] = src_buf[x + 3];
-                            #else
-                            if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                            if((u32)dest_buf < 0x60000000)
                             {
-                                 *((volatile unsigned int *)(dest_buf + x)) = (src_buf[x + 1].full << 16) | src_buf[x].full;
-                                 *((volatile unsigned int *)(dest_buf + x + 2)) = (src_buf[x + 3].full << 16) | src_buf[x + 2].full;
+                                dest_buf[x] = src_buf[x];
+                                dest_buf[x + 1] = src_buf[x + 1];
+                                dest_buf[x + 2] = src_buf[x + 2];
+                                dest_buf[x + 3] = src_buf[x + 3];
                             }
                             else
                             {
-                                 *((volatile unsigned int *)(dest_buf + x - 1)) = (src_buf[x].full << 16) | dest_buf[x - 1].full;
-                                 *((volatile unsigned int *)(dest_buf + x + 1)) = (src_buf[x + 2].full << 16) | src_buf[x + 1].full;
-                                 *((volatile unsigned int *)(dest_buf + x + 3)) = (dest_buf[x + 4].full << 16) | src_buf[x + 3].full;
+                                if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                                {
+                                     *((volatile unsigned int *)(dest_buf + x)) = (src_buf[x + 1].full << 16) | src_buf[x].full;
+                                     *((volatile unsigned int *)(dest_buf + x + 2)) = (src_buf[x + 3].full << 16) | src_buf[x + 2].full;
+                                }
+                                else
+                                {
+                                     *((volatile unsigned int *)(dest_buf + x - 1)) = (src_buf[x].full << 16) | dest_buf[x - 1].full;
+                                     *((volatile unsigned int *)(dest_buf + x + 1)) = (src_buf[x + 2].full << 16) | src_buf[x + 1].full;
+                                     *((volatile unsigned int *)(dest_buf + x + 3)) = (dest_buf[x + 4].full << 16) | src_buf[x + 3].full;
+                                }
                             }
-                            #endif
                         }
                         else {
                             mask_tmp_x = (const lv_opa_t *)mask32;
-                            MAP_NORMAL_MASK_PX(x)
-                            MAP_NORMAL_MASK_PX(x + 1)
-                            MAP_NORMAL_MASK_PX(x + 2)
-                            MAP_NORMAL_MASK_PX(x + 3)
+                            if((u32)dest_buf < 0x60000000)
+                            {
+                                MAP_NORMAL_MASK_PX(x)
+                                MAP_NORMAL_MASK_PX(x + 1)
+                                MAP_NORMAL_MASK_PX(x + 2)
+                                MAP_NORMAL_MASK_PX(x + 3)
+                            }
+                            else
+                            {
+                                MAP_NORMAL_MASK_PX_ALIGN(x)
+                                MAP_NORMAL_MASK_PX_ALIGN(x + 1)
+                                MAP_NORMAL_MASK_PX_ALIGN(x + 2)
+                                MAP_NORMAL_MASK_PX_ALIGN(x + 3)
+                            }
                         }
                     }
                     mask32++;
@@ -904,7 +944,10 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t * dest_buf, const lv_are
 
                 mask_tmp_x = (const lv_opa_t *)mask32;
                 for(; x < w ; x++) {
-                    MAP_NORMAL_MASK_PX(x)
+                    if((u32)dest_buf < 0x6000000)
+                        MAP_NORMAL_MASK_PX(x)
+                    else
+                        MAP_NORMAL_MASK_PX_ALIGN(x)
                 }
 #endif
                 dest_buf += dest_stride;
@@ -918,15 +961,18 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t * dest_buf, const lv_are
                 for(x = 0; x < w; x++) {
                     if(mask[x]) {
                         lv_opa_t opa_tmp = mask[x] >= LV_OPA_MAX ? opa : ((opa * mask[x]) >> 8);
-                        #if !LVGL_USE_PSRAM
-                        dest_buf[x] = lv_color_mix(src_buf[x], dest_buf[x], opa_tmp);
-                        #else
-                        tmp_color = lv_color_mix(src_buf[x], dest_buf[x], opa_tmp);
-                        if(((unsigned int)(dest_buf + x) & 0x3) == 0)
-                             *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | tmp_color.full;
+                        if((u32)dest_buf < 0x60000000)
+                        {
+                            dest_buf[x] = lv_color_mix(src_buf[x], dest_buf[x], opa_tmp);
+                        }
                         else
-                            *((volatile unsigned int *)(dest_buf + x - 1)) = (tmp_color.full << 16) | dest_buf[x - 1].full;
-                        #endif
+                        {
+                            tmp_color = lv_color_mix(src_buf[x], dest_buf[x], opa_tmp);
+                            if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                                 *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | tmp_color.full;
+                            else
+                                *((volatile unsigned int *)(dest_buf + x - 1)) = (tmp_color.full << 16) | dest_buf[x - 1].full;
+                        }
                     }
                 }
                 dest_buf += dest_stride;
@@ -1123,14 +1169,17 @@ static void map_blended(lv_color_t * dest_buf, const lv_area_t * dest_area, lv_c
                     last_src_color = src_buf[x];
                     last_res_color = blend_fp(last_src_color, last_dest_color, opa);
                 }
-                #if !LVGL_USE_PSRAM
-                dest_buf[x] = last_res_color;
-                #else
-                if(((unsigned int)(dest_buf + x) & 0x3) == 0)
-                     *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                if((u32)dest_buf < 0x60000000)
+                {
+                    dest_buf[x] = last_res_color;
+                }
                 else
-                    *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
-                #endif
+                {
+                    if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                         *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                    else
+                        *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
+                }
             }
             dest_buf += dest_stride;
             src_buf += src_stride;
@@ -1152,14 +1201,17 @@ static void map_blended(lv_color_t * dest_buf, const lv_area_t * dest_area, lv_c
                     last_opa = opa_tmp;
                     last_res_color = blend_fp(last_src_color, last_dest_color, last_opa);
                 }
-                #if !LVGL_USE_PSRAM
-                dest_buf[x] = last_res_color;
-                #else
-                if(((unsigned int)(dest_buf + x) & 0x3) == 0)
-                     *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                if((u32)dest_buf < 0x60000000)
+                {
+                    dest_buf[x] = last_res_color;
+                }
                 else
-                    *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
-                #endif
+                {
+                    if(((unsigned int)(dest_buf + x) & 0x3) == 0)
+                         *((volatile unsigned int *)(dest_buf + x)) = (dest_buf[x + 1].full << 16) | last_res_color.full;
+                    else
+                        *((volatile unsigned int *)(dest_buf + x - 1)) = (last_res_color.full << 16) | dest_buf[x - 1].full;
+                }
             }
             dest_buf += dest_stride;
             src_buf += src_stride;

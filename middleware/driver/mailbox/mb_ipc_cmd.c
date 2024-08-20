@@ -29,7 +29,7 @@
 #define IPC_RSP_CMD_MASK		0x7F
 
 #define IPC_RSP_TIMEOUT			10		/* 10ms */
-#define IPC_XCHG_DATA_MAX		16
+#define IPC_XCHG_DATA_MAX		MB_CHNL_BUFF_LEN
 
 typedef union
 {
@@ -350,6 +350,7 @@ static bk_err_t ipc_send_cmd(ipc_chnl_cb_t *chnl_cb, u8 cmd, u8 *cmd_buf, u16 cm
 		ret_val = rtos_get_semaphore(&chnl_cb->rsp_sema, IPC_RSP_TIMEOUT);  /* isr_callback will set this semaphore. */
 		if(ret_val != BK_OK)
 		{
+			mb_chnl_ctrl(chnl_cb->chnl_id, MB_CHNL_TX_RESET, NULL);
 			break;
 		}
 

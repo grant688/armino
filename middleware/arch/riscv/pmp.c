@@ -310,6 +310,14 @@ void show_pmp_config()
 
 #else
 
+#ifndef BOOTLOADER_END_ADDR
+#define BOOTLOADER_END_ADDR (0x10000)
+#endif
+
+#ifndef FLASH_INSTRUCT_SIZE
+#define FLASH_INSTRUCT_SIZE (0x800000)
+#endif
+
 void show_pmp_config()
 {
 }
@@ -326,7 +334,7 @@ void init_u_mode_pmp_config()
 #define SRAM_START_ADDR   0x30000000
 #define SRAM_END_ADDR     0X38080000
 
-#if CONFIG_DUAL_CORE  // #if config_multi_core
+#if 0	//CONFIG_DUAL_CORE  // #if config_multi_core
 // #if CONFIG_MAILBOX  // #if config_multi_core
 
 	u8    free_cfg = 0;
@@ -372,6 +380,13 @@ void init_u_mode_pmp_config()
 
 #endif
 
+	extern char _flash_start, _flash_end;
+#if CONFIG_SLAVE_CORE
+	mon_pmp_cfg(BOOTLOADER_END_ADDR, (u32)&_flash_start - CONFIG_CPU0_FLASH_SIZE - BOOTLOADER_END_ADDR, 0);
+#else
+	mon_pmp_cfg(BOOTLOADER_END_ADDR, (u32)&_flash_start - BOOTLOADER_END_ADDR, 0);
+#endif
+	mon_pmp_cfg((u32)&_flash_end, FLASH_INSTRUCT_SIZE - (u32)&_flash_end, 0);
 }
 
 #endif

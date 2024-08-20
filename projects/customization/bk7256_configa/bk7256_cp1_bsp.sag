@@ -8,6 +8,11 @@ USER_SECTIONS	.swap_data
 
 CPU1 0x1B0000 0x20000
 {
+	FLASH_START +0 ALIGN 32
+	{
+		LOADADDR NEXT   _flash_start
+	}
+
 	FLASH 0x1B0000
 	{
 		* (.nds_vector)
@@ -63,5 +68,8 @@ CPU1 0x1B0000 0x20000
 		* KEEP (.swap_data)
 	}
 
+	FLASH_END +0 ALIGN 32
+	{
+		LOADADDR _flash_end
+	}
 }
-

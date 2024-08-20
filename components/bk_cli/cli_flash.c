@@ -28,6 +28,7 @@ static void cli_flash_help(void)
 
 static void cli_flash_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
+	char *msg = NULL;
 	if (argc < 2) {
 		cli_flash_help();
 		return;
@@ -42,6 +43,7 @@ static void cli_flash_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, ch
 			bk_flash_erase_sector(addr);
 		}
 		bk_flash_set_protect_type(FLASH_UNPROTECT_LAST_BLOCK);
+		msg = CLI_CMD_RSP_SUCCEED;
 	} else if (os_strcmp(argv[1], "read") == 0) {
 		uint8_t buf[FLASH_PAGE_SIZE] = {0};
 		for (uint32_t addr = start_addr; addr < (start_addr + len); addr += FLASH_PAGE_SIZE) {
@@ -57,6 +59,7 @@ static void cli_flash_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, ch
 				os_printf("\r\n");
 			}
 		}
+		msg = CLI_CMD_RSP_SUCCEED;
 	} else if (os_strcmp(argv[1], "write") == 0) {
 		uint8_t buf[FLASH_PAGE_SIZE] = {0};
 		for (uint32_t i = 0; i < FLASH_PAGE_SIZE; i++) {
@@ -67,16 +70,22 @@ static void cli_flash_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, ch
 			bk_flash_write_bytes(addr, buf, FLASH_PAGE_SIZE);
 		}
 		bk_flash_set_protect_type(FLASH_UNPROTECT_LAST_BLOCK);
+		msg = CLI_CMD_RSP_SUCCEED;
 	} else if (os_strcmp(argv[1], "get_id") == 0) {
 		uint32_t flash_id = bk_flash_get_id();
 		CLI_LOGI("flash_id:%x\r\n", flash_id);
+		msg = CLI_CMD_RSP_SUCCEED;
 	} else if (os_strcmp(argv[1], "set_line") == 0) {
 		/*enable FLASH_QUAD_ENABLE first*/
 		uint16_t line_mode = os_strtoul(argv[2], NULL, 16);
 		bk_flash_set_line_mode(line_mode);
+		msg = CLI_CMD_RSP_SUCCEED;
 	} else {
 		cli_flash_help();
+		msg = CLI_CMD_RSP_ERROR;
 	}
+
+	os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
 }
 
 static void cli_flash_partition_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -274,11 +283,12 @@ void flash_erase_with_ble_sleep(uint32_t erase_addr)
 
 static void cli_flash_erase_test_with_ble(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
+	char *msg = NULL;
 	uint32_t start_addr = 0x260000;
 	uint32_t erase_len = 0x180000;
 
 	if (os_strcmp(argv[1], "ble") == 0) {
-#if (CONFIG_BLE)
+#if (CONFIG_BLUETOOTH)
 		bk_ble_register_sleep_state_callback(flash_test_ble_sleep_cb);
 #endif
 
@@ -288,9 +298,12 @@ static void cli_flash_erase_test_with_ble(char *pcWriteBuffer, int xWriteBufferL
 			CLI_LOGI("erase_addr:%x\r\n", erase_addr);
 		}
 		CLI_LOGI("cli_flash_erase_test_with_ble finish.\r\n");
+		msg = CLI_CMD_RSP_SUCCEED;
 	} else {
 		cli_flash_help();
+		msg = CLI_CMD_RSP_ERROR;
 	}
+	os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
 }
 
 #define FLASH_CMD_CNT (sizeof(s_flash_commands) / sizeof(struct cli_command))

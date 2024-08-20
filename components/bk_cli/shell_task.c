@@ -45,6 +45,7 @@
 
 #define SHELL_EVENT_TX_REQ  	0x01
 #define SHELL_EVENT_RX_IND  	0x02
+#define SHELL_EVENT_WAKEUP      0x04
 
 #define SHELL_LOG_BUF1_LEN      136
 #define SHELL_LOG_BUF2_LEN      80
@@ -149,7 +150,6 @@ typedef struct
 	/* patch end. */
 
 	u8     assert_buff[SHELL_ASSERT_BUF_LEN];
-	u8     assert_data_len;
 
 	u8     log_level;
 	u8     echo_enable;
@@ -295,7 +295,7 @@ static u8     prompt_str_idx = 0;
 static u32    shell_pm_wake_time = SHELL_TASK_WAKE_CYCLE;   // wait cycles before enter sleep.
 static u8     shell_pm_wake_flag = 1;
 
-#if 0
+#if 1
 
 static os_ext_event_t   shell_task_event;
 
@@ -1302,6 +1302,7 @@ static void wakeup_process(void)
 static void shell_rx_wakeup(int gpio_id)
 {
 	wakeup_process();
+	set_shell_event(SHELL_EVENT_WAKEUP);
 
 	shell_log_raw_data((const u8*)"wakeup\r\n", sizeof("wakeup\r\n") - 1);
 
@@ -1352,7 +1353,6 @@ static void shell_task_init(void)
 	cmd_line_buf.cur_cmd_type = CMD_TYPE_INVALID;
 	cmd_line_buf.cmd_data_len = 0;
 	cmd_line_buf.bkreg_state = BKREG_WAIT_01;
-	cmd_line_buf.assert_data_len = 0;
 	cmd_line_buf.log_level = LOG_LEVEL;
 	cmd_line_buf.echo_enable = bTRUE;
 	cmd_line_buf.log_flush = 1;
@@ -1443,6 +1443,11 @@ void shell_task( void *para )
 			rx_ind_process();
 		}
 		
+		if(Events & SHELL_EVENT_WAKEUP)
+		{
+			// TODO
+		}
+
 		if(Events == 0)
 		{
 			if(shell_pm_wake_time > 0)
@@ -1495,7 +1500,6 @@ int shell_log_out_sync(int level, char *prefix, const char *format, va_list ap)
 	u32         int_mask;
 	char       *pbuf;
 	u16         data_len = 0, buf_len;
-	va_list     arg_list;
 
 	if( !shell_level_check_valid(level) )
 		return 0;
@@ -1516,9 +1520,7 @@ int shell_log_out_sync(int level, char *prefix, const char *format, va_list ap)
 		data_len = 0;
 	}
 
-	va_copy(arg_list, ap);
-	data_len += vsnprintf( &pbuf[data_len], buf_len - data_len, format, arg_list );
-	va_end( arg_list );
+	data_len += vsnprintf( &pbuf[data_len], buf_len - data_len, format, ap );
 
 	if(data_len >= buf_len)
 		data_len = buf_len - 1;
@@ -1583,7 +1585,6 @@ void shell_log_out_port(int level, char *prefix, const char *format, va_list ap)
 	u8   * packet_buf;
 	u16    free_blk_tag;
 	u16    log_len = 0, buf_len;
-	va_list  arg_list;
 
 	if( !shell_init_ok )
 	{
@@ -1599,9 +1600,7 @@ void shell_log_out_port(int level, char *prefix, const char *format, va_list ap)
 		return ;
 	}
 
-	va_copy(arg_list, ap);
-	buf_len = vsnprintf( NULL, 0, format, arg_list ) + 1;  /* for '\0' */
-	va_end( arg_list );
+	buf_len = vsnprintf( NULL, 0, format, ap ) + 1;  /* for '\0' */
 
 	if(prefix != NULL)
 		buf_len += strlen(prefix);

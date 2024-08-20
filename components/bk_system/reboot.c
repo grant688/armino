@@ -44,10 +44,6 @@ void bk_reboot_ex(uint32_t reset_reason)
 #if !CONFIG_SLAVE_CORE
 	BK_LOGI(TAG, "bk_reboot\r\n");
 
-	if (reset_reason < RESET_SOURCE_UNKNOWN) {
-		bk_misc_set_reset_reason(reset_reason);
-	}
-
 #if (CONFIG_SOC_BK7231N) || (CONFIG_SOC_BK7236A) || (CONFIG_SOC_BK7256XX)
 	delay_ms(100); //add delay for bk_writer BEKEN_DO_REBOOT cmd
 #endif
@@ -66,6 +62,10 @@ void bk_reboot_ex(uint32_t reset_reason)
 #endif
 
 	BK_LOGI(TAG, "wdt reboot\r\n");
+	rtos_disable_int();
+	if (reset_reason < RESET_SOURCE_UNKNOWN) {
+		bk_misc_set_reset_reason(reset_reason);
+	}
 	bk_wdt_force_reboot();
 #endif //#if !CONFIG_SLAVE_CORE
 }

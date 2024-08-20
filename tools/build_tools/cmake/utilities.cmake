@@ -422,3 +422,29 @@ function(add_subdirectory_if_exists source_dir)
         LOGI("Subdirectory '${abs_dir}' does not exist, skipped.")
     endif()
 endfunction()
+
+
+#redefine __FILE__ macro
+function(redefine_file_macro source_files)
+    # message(STATUS "source_files: '${source_files}'.")
+    foreach(sourcefile ${source_files})
+        #get current source file property
+        get_property(defs SOURCE ${sourcefile}
+            PROPERTY COMPILE_DEFINITIONS)
+        #message(STATUS "sourcefile: '${sourcefile}'.")
+        #get current source files absolute path
+        get_filename_component(filepath ${sourcefile} ABSOLUTE)
+        #replace the project path by null,so we can get the relative path
+        string(REPLACE ${PROJECT_SOURCE_DIR}/ "" relpath ${filepath})
+        #put the redefined macro of __FILE__ to the property
+        list(APPEND defs "__FILE__=\"${relpath}\"")
+        # message(STATUS "PROJECT_SOURCE_DIR: '${PROJECT_SOURCE_DIR}'.")
+        # message(STATUS "filepath: '${filepath}'.")
+        # message(STATUS "relpath: '${relpath}'.")
+        #reset the source file property
+        set_property(
+            SOURCE ${sourcefile}
+            PROPERTY COMPILE_DEFINITIONS ${defs}
+            )
+    endforeach()
+endfunction()

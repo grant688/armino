@@ -1725,7 +1725,112 @@ void sys_hal_psram_psram_disckg(uint32_t value)
 	sys_ll_set_cpu_mode_disckg1_psram_disckg(value);
 }
 
+void sys_hal_set_ana_trxt_tst_enable(uint32_t value)
 
+{
+	sys_ll_set_ana_reg5_trxt_tst_enable(value);
+}
+
+
+void sys_hal_set_ana_scal_en(uint32_t value)
+{
+	sys_ll_set_ana_reg7_scal_en(value);
+}
+
+
+void sys_hal_set_ana_gadc_buf_ictrl(uint32_t value)
+{
+   sys_ll_set_ana_reg7_gadc_buf_ictrl(value);
+}
+
+void sys_hal_set_ana_gadc_cmp_ictrl(uint32_t value)
+{
+    sys_ll_set_ana_reg7_gadc_cmp_ictrl(value);
+}
+
+void sys_hal_set_ana_pwd_gadc_buf(uint32_t value)
+{
+	sys_ll_set_ana_reg6_pwd_gadc_buf(value);
+}
+
+void sys_hal_set_ana_vref_sel(uint32_t value)
+{
+	sys_ll_set_ana_reg7_vref_sel(value);
+}
+void sys_hal_set_ana_cb_cal_manu(uint32_t value)
+{
+    sys_ll_set_ana_reg4_cb_cal_manu(value);
+}
+
+void sys_hal_set_ana_cb_cal_trig(uint32_t value)
+{
+    sys_ll_set_ana_reg4_cb_cal_trig(value);
+}
+
+UINT32 sys_hal_get_ana_cb_cal_manu_val(void)
+{
+    return sys_ll_get_ana_reg4_cb_manu_val();
+}
+
+void sys_hal_set_ana_cb_cal_manu_val(uint32_t value)
+{
+    sys_ll_set_ana_reg4_cb_manu_val(value);
+}
+
+void sys_hal_set_ana_vlsel_ldodig(uint32_t value)
+{
+    sys_ll_set_ana_reg3_vlsel_ldodig(value);
+}
+void sys_hal_set_ana_vhsel_ldodig(uint32_t value)
+{
+    sys_ll_set_ana_reg3_vhsel_ldodig(value);
+}
+
+void sys_hal_set_sdio_clk_en(uint32_t value)
+{
+	sys_ll_set_cpu_device_clk_enable_sdio_cken(value);
+}
+
+void sys_hal_set_cpu0_sdio_int_en(uint32_t value)
+{
+	sys_ll_set_cpu0_int_0_31_en_cpu0_sdio_int_en(value);
+}
+
+void sys_hal_set_cpu1_sdio_int_en(uint32_t value)
+{
+	sys_ll_set_cpu1_int_0_31_en_cpu1_sdio_int_en(value);
+}
+
+void sys_hal_set_sdio_clk_div(uint32_t value)
+{
+	sys_ll_set_cpu_clk_div_mode2_ckdiv_sdio(value);
+}
+
+uint32_t sys_hal_get_sdio_clk_div()
+{
+	return sys_ll_get_cpu_clk_div_mode2_ckdiv_sdio();
+}
+
+void sys_hal_set_sdio_clk_sel(uint32_t value)
+{
+	sys_ll_set_cpu_clk_div_mode2_cksel_sdio(value);
+}
+
+uint32_t sys_hal_get_sdio_clk_sel()
+{
+	return sys_ll_get_cpu_clk_div_mode2_cksel_sdio();
+}
+
+
+void sys_hal_set_ana_vctrl_sysldo(uint32_t value)
+{
+    sys_ll_set_ana_reg5_vctrl_sysldo(value);
+}
+
+void sys_hal_set_ana_vtempsel(uint32_t value)
+{
+    sys_ll_set_ana_reg9_vtempsel(value);
+}
 /**  Misc Start **/
 //Misc
 /**  Misc End **/

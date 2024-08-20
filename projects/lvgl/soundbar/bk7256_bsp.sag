@@ -14,6 +14,11 @@ USER_SECTIONS   .sram_cache
 
 CPU0_LOAD1 0x00010000 0x8800
 {
+	FLASH_START +0 ALIGN 32
+	{
+		LOADADDR NEXT   _flash_start
+	}
+
     FLASH1 0x00010000 0x800
 	{
 		* KEEP (.nds_vector)
@@ -118,4 +123,8 @@ CPU0_LOAD2 0x00018800  0x2F7800
 		* KEEP (.sram_cache)
 	}
 
+	FLASH_END +0 ALIGN 32
+	{
+		LOADADDR _flash_end
+	}
 }

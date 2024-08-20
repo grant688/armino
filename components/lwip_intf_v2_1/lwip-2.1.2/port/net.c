@@ -395,9 +395,9 @@ void sta_ip_down(void)
 
 		sta_ip_start_flag = 0;
 
-		netifapi_netif_set_down(&g_mlan.netif);
 		netif_set_status_callback(&g_mlan.netif, NULL);
 		netifapi_dhcp_stop(&g_mlan.netif);
+		netifapi_netif_set_down(&g_mlan.netif);
 #if LWIP_IPV6
 		for(u8_t addr_idx = 1; addr_idx < LWIP_IPV6_NUM_ADDRESSES; addr_idx++) {
 			netif_ip6_addr_set(&g_mlan.netif, addr_idx, (const ip6_addr_t *)IP6_ADDR_ANY);
@@ -610,6 +610,7 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
 	} else {
 		// softap IP up, start dhcp server;
 		dhcp_server_start(net_get_uap_handle());
+		ap_set_default_netif();
 		up_iface = 0;
 	}
 

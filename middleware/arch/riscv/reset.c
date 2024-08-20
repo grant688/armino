@@ -46,6 +46,9 @@ void reset_handler(void)
 	/* Do global constructors */
 	__libc_init_array();
 
+	/*Init pmp configuration*/
+	init_u_mode_pmp_config();
+
 	mon_app_started();  // app started, let monitor forward exceptions to U-mode.
 
 	/*power manager init*/
@@ -63,9 +66,6 @@ void reset_handler(void)
 	//clear mannully reboot flag
 	set_reboot_tag(0);
 #endif
-
-	/*Init pmp configuration*/
-	// init_u_mode_pmp_config();
 	
 	/* Entry function */
 	entry_main();
